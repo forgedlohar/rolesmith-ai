@@ -97,6 +97,7 @@ def save_config(config: AppConfig) -> None:
         "phone": config.phone,
         "location": config.location,
         "experience_years": config.experience_years,
+        "autofill": config.autofill,
     }
     CONFIG_PATH.write_text(json.dumps(data, indent=2))
 

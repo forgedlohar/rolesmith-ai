@@ -212,7 +212,15 @@ def upsert_job(url: str, **kwargs) -> None:
 
         # Error handling from previous logic
         if "error" in kwargs:
-            conn.execute("UPDATE applications SET error = ? WHERE job_url = ?", (kwargs["error"], url))
+            conn.execute(
+                """
+                INSERT INTO applications (job_url, status, applied_at, error)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(job_url) DO UPDATE SET
+                    error=excluded.error
+                """,
+                (url, job_data.get("status", "failed"), datetime.now(timezone.utc).isoformat(), kwargs["error"]),
+            )
 
 
 def get_job(url: str) -> dict[str, Any] | None:

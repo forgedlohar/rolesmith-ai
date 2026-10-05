@@ -3,10 +3,9 @@ import json
 import logging
 import sqlite3
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from rolesmith_ai import config
 from rolesmith_ai.pipeline.models import JobRating
 from rolesmith_ai.store import get_db_path, get_job, get_jobs_by_status, is_already_applied, upsert_job
 from rolesmith_ai.tools.apply import apply_job
@@ -27,7 +26,7 @@ RUNS: dict[str, dict[str, Any]] = {}
 
 def daily_remaining() -> int:
     with sqlite3.connect(get_db_path()) as conn:
-        yesterday = (datetime.utcnow() - timedelta(days=1)).isoformat()
+        yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
         cur = conn.execute(
             "SELECT COUNT(*) FROM applications WHERE applied_at > ? AND status = 'applied'",
             (yesterday,),
@@ -218,14 +217,6 @@ async def apply_queue(run_id: str, auto_apply: bool = False, dry_run: bool = Tru
             logger.info(f"[Dry Run] Applied to {j['company']}")
             continue
 
-        # Real apply requires cfg override
-        cfg = config.load_config()
-        original_resume = cfg.resume_path
-        cfg.resume_path = j["resume_path"]
-        config.save_config(cfg)  # Needs to be saved for tools.apply to see it? Or replace(cfg, resume_path)
-        # Actually in Phase 6 instructions: "Applier functions take cfg: AppConfig (a dataclass). Use dataclasses.replace(cfg, resume_path=...) for per-job resumes instead of mutating globals."
-        # And "tools/apply.py: add optional resume_path to apply_job"
-
         try:
             res = await apply_job(
                 job_url=j["url"],
@@ -234,7 +225,7 @@ async def apply_queue(run_id: str, auto_apply: bool = False, dry_run: bool = Tru
                 job_title=j["title"],
                 company=j["company"],
                 match_score=j["llm_score"],
-                resume_path=j["resume_path"],  # we will add this in Phase 6
+                resume_path=j["resume_path"],
             )
 
             if res.get("success"):
@@ -246,10 +237,9 @@ async def apply_queue(run_id: str, auto_apply: bool = False, dry_run: bool = Tru
             else:
                 upsert_job(j["url"], status="failed", error=res.get("error", "Unknown error"))
                 logger.error(f"Failed to apply to {j['company']}: {res.get('error')}")
-        finally:
-            # Restore original
-            cfg.resume_path = original_resume
-            config.save_config(cfg)
+        except Exception as e:
+            upsert_job(j["url"], status="failed", error=str(e))
+            logger.error(f"Error applying to {j['company']}: {e}")
 
 
 async def _background_task(run_id: str, action: str, **kwargs):
