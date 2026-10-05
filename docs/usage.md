@@ -58,17 +58,24 @@ make dashboard
 ```
 Open `http://localhost:8000` in your browser.
 
-## Recruiter Communications (Gmail)
+## Recruiter Communications (Gmail & ATS Tracking)
 
-Rolesmith AI can securely connect to your Gmail to handle recruiter communications:
+Rolesmith AI transforms your Gmail into an automated Application Tracking System. It securely connects to your inbox to manage recruiter communications, track pipeline statuses, and automatically map emails back to your applied jobs.
 
-1. **Check Emails & Interview Prep**
+1. **Setup ATS Tracking Filters**
+   ```bash
+   make gmail-setup
+   ```
+   *Creates a "Rolesmith AI" Gmail label and configures automated filters for incoming emails from ATS platforms (Greenhouse, Lever, Workday, iCIMS, etc.).*
+
+2. **Check Emails & Interview Prep**
    ```bash
    make check-emails
    ```
-   Scans your inbox for recruiter emails, decides if they require a reply, and saves a drafted response for you. If it's an interview request, it generates a `prep_sheet.md` with company background and likely questions.
+   *Advanced Heuristic Matching:* Scans your inbox and explicitly matches recruiter emails to your applied jobs database using domain matching, subject-line regex extraction, and ATS signal scoring.
+   *State Machine Sync:* Classifies emails into pipeline states (`rejection`, `interview`, `offer`) using the LLM, extracts recruiters and dates, drafts a response, and **automatically updates the job status in your SQLite database**. If it's an interview request, it generates a `prep_sheet.md` with company background and likely questions.
 
-2. **Automated Follow-ups**
+3. **Automated Follow-ups**
    ```bash
    make follow-ups
    ```

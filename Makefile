@@ -35,3 +35,6 @@ check-emails: ## Scan Gmail for job replies and auto-draft responses
 
 follow-ups: ## Draft follow-up emails for old applications
 	uv run rolesmith_ai follow-up
+
+gmail-setup: ## Setup Gmail labels and ATS tracking filters
+	uv run rolesmith_ai gmail-setup
