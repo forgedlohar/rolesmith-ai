@@ -28,6 +28,8 @@ dev = [
     "pip-audit",
     "pytest-mock",
     "types-reportlab>=5.0.0.20260911",
+    "mkdocs>=1.6.1",
+    "mkdocs-material>=9.7.7",
 ]
 docs = [
     "mkdocs-material",

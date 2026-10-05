@@ -2160,6 +2160,8 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "mkdocs" },
+    { name = "mkdocs-material" },
     { name = "mypy" },
     { name = "pip-audit" },
     { name = "pre-commit" },
@@ -2185,6 +2187,8 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "mkdocs", specifier = ">=1.6.1" },
+    { name = "mkdocs-material", specifier = ">=9.7.7" },
     { name = "mypy" },
     { name = "pip-audit" },
     { name = "pre-commit" },

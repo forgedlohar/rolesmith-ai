@@ -1,0 +1,42 @@
+site_name: Rolesmith AI
+site_url: https://forgedlohar.github.io/rolesmith-ai/
+site_description: An LLM-driven job application autopilot pipeline.
+
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - toc.integrate
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: deep purple
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: deep purple
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+nav:
+  - Home: index.md
+  - Architecture: architecture.md
+  - Configuration: configuration.md
+  - Usage: usage.md
+
+markdown_extensions:
+  - toc:
+      permalink: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
