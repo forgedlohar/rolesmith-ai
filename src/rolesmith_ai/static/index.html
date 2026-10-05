@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rolesmith AI Dashboard</title>
+    <link rel="stylesheet" href="/assets/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="background-mesh"></div>
+    
+    <div class="container">
+        <header class="header">
+            <div class="logo">
+                <div class="logo-icon"></div>
+                <h1>Rolesmith AI</h1>
+            </div>
+            <div class="header-actions">
+                <span class="status-badge pulse">Pipeline Active</span>
+            </div>
+        </header>
+
+        <main class="dashboard-grid">
+            <!-- Stats Row -->
+            <section class="stats-row">
+                <div class="stat-card glass">
+                    <h3>Total Jobs Found</h3>
+                    <div class="stat-value" id="stat-total-jobs">-</div>
+                    <div class="stat-trend">+12% this week</div>
+                </div>
+                <div class="stat-card glass">
+                    <h3>Applications Sent</h3>
+                    <div class="stat-value text-gradient" id="stat-applied">-</div>
+                    <div class="stat-trend">Autopilot Working</div>
+                </div>
+                <div class="stat-card glass">
+                    <h3>To Be Reviewed</h3>
+                    <div class="stat-value text-warning" id="stat-review">-</div>
+                    <div class="stat-trend">Needs your approval</div>
+                </div>
+            </section>
+
+            <!-- Main Content Row -->
+            <div class="main-columns">
+                <!-- Left Column: Jobs Table -->
+                <section class="jobs-section glass">
+                    <div class="section-header">
+                        <h2>Recent Opportunities</h2>
+                        <button class="btn-primary" onclick="loadJobs()">Refresh</button>
+                    </div>
+                    <div class="table-container">
+                        <table id="jobs-table">
+                            <thead>
+                                <tr>
+                                    <th>Role</th>
+                                    <th>Company</th>
+                                    <th>Platform</th>
+                                    <th>Score</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="jobs-body">
+                                <!-- Populated by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- Right Column: Recent Runs -->
+                <section class="runs-section glass">
+                    <div class="section-header">
+                        <h2>Pipeline Runs</h2>
+                    </div>
+                    <div class="runs-list" id="runs-list">
+                        <!-- Populated by JS -->
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <script src="/assets/app.js"></script>
+</body>
+</html>

@@ -26,3 +26,6 @@ check: format lint test ## Run format, lint, and test
 
 run: ## Run the MCP server locally over stdio
 	uv run rolesmith_ai-mcp
+
+dashboard: ## Run the local dashboard UI
+	uv run rolesmith_ai-dashboard

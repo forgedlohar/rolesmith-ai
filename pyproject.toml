@@ -7,16 +7,18 @@ authors = [
 ]
 requires-python = ">=3.11"
 dependencies = [
+    "fastapi[standard]>=0.142.2",
     "mcp>=1.0,<2",
     "playwright",
     "pydantic>=2",
     "pydantic-settings",
-    "reportlab"
+    "reportlab",
 ]
 
 [project.scripts]
 rolesmith_ai = "rolesmith_ai.pipeline.__main__:main"
 rolesmith_ai-mcp = "rolesmith_ai.server:main"
+rolesmith_ai-dashboard = "rolesmith_ai.dashboard:main"
 
 [dependency-groups]
 dev = [
