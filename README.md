@@ -1,5 +1,9 @@
 # Rolesmith AI
 
+<div align="center">
+  <img src="docs/logo.jpg" alt="Rolesmith AI Logo" width="250" />
+</div>
+
 An LLM "autopilot" pipeline that discovers, rates, and autonomously applies to jobs across multiple platforms, intelligently tailoring your resume per application.
 
 Rolesmith AI builds upon the foundational web automation of `job-apply-mcp`, extending it with a powerful AI agent pipeline that reasons about Job Descriptions, customizes your PDF resume via LaTeX, and completes complex application forms natively in Playwright.
