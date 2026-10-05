@@ -261,6 +261,67 @@ TOOLS: list[Tool] = [
             "additionalProperties": False,
         },
     ),
+    Tool(
+        name="autopilot_start",
+        description="Start an autopilot run (discover, rate, tailor, apply).",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "auto_apply": {"type": "boolean", "default": False},
+                "dry_run": {"type": "boolean", "default": True},
+            }
+        },
+    ),
+    Tool(
+        name="autopilot_status",
+        description="Check status of an autopilot run_id.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "run_id": {"type": "string"},
+            },
+            "required": ["run_id"],
+        },
+    ),
+    Tool(
+        name="list_shortlist",
+        description="List all jobs that passed rating and are ready to apply/tailor.",
+        inputSchema={"type": "object", "properties": {}},
+    ),
+    Tool(
+        name="tailor_resume_for_job",
+        description="Tailor resume for a specific job URL.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "job_url": {"type": "string"},
+            },
+            "required": ["job_url"],
+        },
+    ),
+    Tool(
+        name="apply_shortlist",
+        description="Apply to all tailored jobs.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "auto_apply": {"type": "boolean", "default": False},
+                "dry_run": {"type": "boolean", "default": True},
+            }
+        },
+    ),
+    Tool(
+        name="review_form_answers",
+        description="Write a manual override for a form question answer.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "question": {"type": "string"},
+                "answer": {"type": "string"},
+            },
+            "required": ["question", "answer"],
+        },
+    ),
 ]
 
 
@@ -338,6 +399,38 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
                 platform=arguments["platform"],
             )
             return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+        elif name == "autopilot_start":
+            from autopilot.pipeline import start_background
+            run_id = start_background("run_autopilot", auto_apply=arguments.get("auto_apply", False), dry_run=arguments.get("dry_run", True))
+            return [TextContent(type="text", text=json.dumps({"run_id": run_id}, indent=2))]
+
+        elif name == "autopilot_status":
+            from autopilot.pipeline import RUNS
+            run_id = arguments["run_id"]
+            if run_id in RUNS:
+                return [TextContent(type="text", text=json.dumps(RUNS[run_id], indent=2))]
+            return [TextContent(type="text", text=json.dumps({"error": "Unknown run_id"}))]
+
+        elif name == "list_shortlist":
+            from autopilot.store import get_jobs_by_status
+            jobs = get_jobs_by_status("rated")
+            return [TextContent(type="text", text=json.dumps(jobs, indent=2))]
+
+        elif name == "tailor_resume_for_job":
+            from autopilot.pipeline import start_background
+            run_id = start_background("tailor_shortlist", force_url=arguments["job_url"])
+            return [TextContent(type="text", text=json.dumps({"run_id": run_id}, indent=2))]
+
+        elif name == "apply_shortlist":
+            from autopilot.pipeline import start_background
+            run_id = start_background("apply_shortlist", dry_run=arguments.get("dry_run", True))
+            return [TextContent(type="text", text=json.dumps({"run_id": run_id}, indent=2))]
+
+        elif name == "review_form_answers":
+            from autopilot.store import save_answer
+            save_answer(arguments["question"], None, arguments["answer"], "user", 1.0)
+            return [TextContent(type="text", text=json.dumps({"status": "saved"}, indent=2))]
 
         else:
             return [TextContent(

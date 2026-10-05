@@ -130,7 +130,31 @@ class CandidateProfile:
     )
 
 
-PROFILE = CandidateProfile()
+def _load_profile() -> CandidateProfile:
+    from config import load_config
+    try:
+        cfg = load_config()
+        overrides = cfg.autofill if hasattr(cfg, "autofill") else {}
+        # The spec says `config.json -> candidate_profile`
+        import json
+        from pathlib import Path
+        config_path = Path.home() / ".job-apply-mcp" / "config.json"
+        if config_path.exists():
+            raw_config = json.loads(config_path.read_text())
+            cand_profile = raw_config.get("candidate_profile", {})
+            kwargs = {}
+            for k, v in cand_profile.items():
+                if k in CandidateProfile.__annotations__:
+                    if isinstance(v, list):
+                        kwargs[k] = tuple(v)
+                    else:
+                        kwargs[k] = v
+            return CandidateProfile(**kwargs)
+    except Exception:
+        pass
+    return CandidateProfile()
+
+PROFILE = _load_profile()
 
 
 def _normalize(text: str) -> str:

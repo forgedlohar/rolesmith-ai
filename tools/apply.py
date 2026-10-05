@@ -432,6 +432,14 @@ def _classify_linkedin_text_answer(
         return "25"
     # Never leave a question unanswered — default to Yes for anything else
     # (most unclassified Easy Apply screening questions are yes/no gates).
+    try:
+        from autopilot.llm_answers import get_answer
+        ans = get_answer(label)
+        if ans is not None:
+            return str(ans)
+    except Exception:
+        pass
+        
     return "Yes"
 
 
@@ -500,6 +508,14 @@ def _classify_linkedin_select(
             return min(inside, key=lambda r: r[1] - r[0])[2]
         return min(ranges, key=lambda r: abs((r[0] + min(r[1], r[0] + 20)) / 2 - target))[2]
 
+    try:
+        from autopilot.llm_answers import get_answer
+        ans = get_answer(label, options=real)
+        if ans is not None:
+            return str(ans)
+    except Exception:
+        pass
+        
     return real[0]
 
 
@@ -1652,6 +1668,7 @@ async def apply_job(
     job_title: str = "",
     company: str = "",
     match_score: float = 0.0,
+    resume_path: str = "",
 ) -> dict[str, Any]:
     """
     Automate a single job application.
@@ -1662,6 +1679,10 @@ async def apply_job(
         return {"success": False, "error": f"Unsupported platform: {platform}"}
 
     cfg = load_config()
+    if resume_path:
+        import dataclasses
+        cfg = dataclasses.replace(cfg, resume_path=resume_path)
+        
     if not cfg.resume_exists:
         return {
             "success": False,
@@ -1865,8 +1886,13 @@ async def bulk_apply(
             company = job.get("company", "Unknown")
             logger.info("[%d/%d] Applying: %s @ %s", idx + 1, total, title, company)
 
+            job_cfg = cfg
+            if job.get("resume_path"):
+                import dataclasses
+                job_cfg = dataclasses.replace(cfg, resume_path=job["resume_path"])
+                
             result = await _apply_in_tab(
-                context, url, plat, cfg, job.get("cover_note", ""),
+                context, url, plat, job_cfg, job.get("cover_note", ""),
             )
             status = "applied" if result.get("success") else "failed"
             try:
