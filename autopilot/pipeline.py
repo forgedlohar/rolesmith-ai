@@ -135,7 +135,9 @@ async def tailor_shortlist(run_id: str, force_url: Optional[str] = None):
     
     tailored_count = 0
     for j in jobs:
-        rating = json.loads(j["rating_json"])
+        rating_dict = json.loads(j["rating_json"])
+        from autopilot.models import JobRating
+        rating = JobRating(**rating_dict)
         try:
             desc = j.get("description") or "Missing description."
             draft, warnings = tailor_resume(j["title"], j["company"], desc, rating)
