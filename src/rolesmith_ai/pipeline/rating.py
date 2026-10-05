@@ -71,12 +71,4 @@ Evaluate the fit and provide a detailed rating."""
         rating.score = min(rating.score, 60)
     elif rating.jd_quality == "partial":
         rating.score = min(rating.score, 80)
-
-    if rating.score >= 75:
-        rating.verdict = "apply"
-    elif 60 <= rating.score <= 74:
-        rating.verdict = "maybe"
-    else:
-        rating.verdict = "skip"
-
     return rating

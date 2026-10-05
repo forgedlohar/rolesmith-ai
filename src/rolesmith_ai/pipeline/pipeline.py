@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from rolesmith_ai.pipeline.models import JobRating
-from rolesmith_ai.store import get_db_path, get_job, get_jobs_by_status, is_already_applied, upsert_job
+from rolesmith_ai.store import count_recent_applications_for_company, get_db_path, get_job, get_jobs_by_status, is_already_applied, upsert_job
 from rolesmith_ai.tools.apply import apply_job
 from rolesmith_ai.tools.search import search_jobs
 
@@ -71,7 +71,7 @@ async def discover_and_rate(run_id: str, fetch_limit: int | None = None):
     to_rate = []
 
     for j in jobs:
-        key = (j["company"].lower(), j["title"].lower())
+        key = (j["company"].lower(), j["title"].lower(), j["apply_url"])
         if key in seen:
             continue
         seen.add(key)
@@ -210,6 +210,11 @@ async def apply_queue(run_id: str, auto_apply: bool = False, dry_run: bool = Tru
         if daily_remaining() <= 0:
             logger.warning("Daily limit reached. Aborting applies.")
             break
+
+        recent_count = count_recent_applications_for_company(j["company"])
+        if recent_count >= settings.pipeline.max_per_company:
+            logger.info(f"Skipping {j['company']} - reached max_per_company limit ({recent_count})")
+            continue
 
         logger.info(f"Applying to {j['company']}...")
         if dry_run:

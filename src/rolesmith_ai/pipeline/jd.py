@@ -7,7 +7,7 @@ from playwright.async_api import async_playwright
 
 async def _fetch_url(url: str) -> str | None:
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
+        browser = await p.firefox.launch(headless=True)
         try:
             page = await browser.new_page()
             # Random delay 1.5-3s

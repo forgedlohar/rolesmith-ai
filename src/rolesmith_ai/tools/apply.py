@@ -79,7 +79,7 @@ async def _autofill_fields(page: Page, cfg: AppConfig) -> int:
 
     # ---- Use JavaScript to find and fill all visible fields ----
     filled = await page.evaluate(
-        """(config) => {
+        r"""(config) => {
         const answers = config.answers;
         const prefLocs = config.prefLocs;
         let filled = 0;
@@ -765,7 +765,7 @@ async def _apply_linkedin(page: Page, cfg: AppConfig, cover_note: str) -> dict[s
             # radio logic) so the click lands on the real interactive
             # element rather than a possibly non-interactive native input.
             answered_radios = await page.evaluate(
-                """(config) => {
+                r"""(config) => {
                 const af = config.af;
                 const expMap = config.expMap;
                 const modal = (document.querySelector('dialog') || document.querySelector('[role="dialog"]'));
