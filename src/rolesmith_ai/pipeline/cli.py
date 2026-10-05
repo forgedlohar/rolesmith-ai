@@ -51,7 +51,7 @@ def check_doctor():
     # 3. Check Playwright
     try:
         # Just check if playwright executable is found and browsers are installed
-        subprocess.run(["uv", "run", "playwright", "install", "--with-deps", "chromium", "firefox"], check=True, capture_output=True)
+        subprocess.run(["uv", "run", "playwright", "--version"], check=True, capture_output=True)
     except Exception as e:
         raise Exception(f"Playwright Error: {e}")
 

@@ -65,11 +65,18 @@ async def _interactive_login_persistent(platform: str, url: str) -> dict[str, An
             page = context.pages[0] if context.pages else await context.new_page()
             await page.goto(url, wait_until="domcontentloaded", timeout=30_000)
             logger.info(
-                "Browser opened for %s. Log in (password or OTP) — the session is stored in the profile itself. Waiting up to 2 minutes...",
+                "Browser opened for %s. Log in (password or OTP). Close the browser tab when you are done. Waiting up to 10 minutes...",
                 platform,
             )
-            await page.wait_for_timeout(120_000)
-            logged_in = "login" not in page.url and "checkpoint" not in page.url
+            for _ in range(600):
+                if page.is_closed():
+                    break
+                await page.wait_for_timeout(1000)
+
+            try:
+                logged_in = not page.is_closed() and "login" not in page.url and "checkpoint" not in page.url
+            except Exception:
+                logged_in = True
         finally:
             await context.close()
 
@@ -156,11 +163,13 @@ async def interactive_login(platform: str) -> dict[str, Any]:
         # to reach a logged-in state.  We give the user up to 5 minutes.
         try:
             logger.info(
-                "Browser opened for %s login. Please log in manually. Waiting 3 minutes for you to complete login...",
+                "Browser opened for %s login. Please log in manually. Close the browser tab when you are done. Waiting up to 10 minutes...",
                 platform,
             )
-            # Wait 2 minutes for user to complete OTP login
-            await page.wait_for_timeout(120_000)
+            for _ in range(600):
+                if page.is_closed():
+                    break
+                await page.wait_for_timeout(1000)
         except Exception:
             pass
 

@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import signal
 import sys
 from typing import Any
 
@@ -422,6 +423,13 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
 
 
 async def main() -> None:
+    def handle_sigterm(signum, frame):
+        logger.info(f"Received signal {signum}, initiating graceful shutdown...")
+        sys.exit(0)
+
+    signal.signal(signal.SIGTERM, handle_sigterm)
+    signal.signal(signal.SIGINT, handle_sigterm)
+
     logger.info("Starting rolesmith_ai server (stdio transport)")
     async with stdio_server() as (read_stream, write_stream):
         await server.run(

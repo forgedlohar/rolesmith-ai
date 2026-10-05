@@ -22,12 +22,20 @@ def extract_json(text: str) -> str:
     # Remove markdown code blocks
     text = re.sub(r"```(?:json)?\s*(.*?)\s*```", r"\1", text, flags=re.DOTALL)
 
-    # Find first { and last }
+    # Find first { and extract matching JSON object
     start = text.find("{")
-    end = text.rfind("}")
+    if start == -1:
+        return text
 
-    if start != -1 and end != -1 and end > start:
-        return text[start : end + 1]
+    depth = 0
+    for i in range(start, len(text)):
+        if text[i] == "{":
+            depth += 1
+        elif text[i] == "}":
+            depth -= 1
+        if depth == 0:
+            return text[start : i + 1]
+
     return text
 
 
@@ -55,7 +63,7 @@ def _call_api(system: str, user: str, use_json_mode: bool = True) -> str:
     )
 
     try:
-        with urllib.request.urlopen(req) as response:
+        with urllib.request.urlopen(req, timeout=120) as response:
             resp_body = response.read().decode("utf-8")
             data = json.loads(resp_body)
             return data["choices"][0]["message"]["content"]

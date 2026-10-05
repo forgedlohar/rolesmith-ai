@@ -14,7 +14,7 @@ def _get_resume_dir(company: str) -> Path:
     # safe company name
     comp_safe = "".join([c if c.isalnum() else "_" for c in company]).strip("_")
     # hash for uniqueness
-    h = hashlib.md5(company.encode("utf-8")).hexdigest()[:8]
+    h = hashlib.sha256(company.encode("utf-8")).hexdigest()[:16]
     return Path.home() / ".rolesmith_ai" / "resumes" / f"{comp_safe}-{h}"
 
 

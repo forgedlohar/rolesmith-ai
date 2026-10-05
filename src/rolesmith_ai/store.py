@@ -385,7 +385,7 @@ def _qa_key(question: str, options: list[str] | None) -> str:
     if options:
         opts = sorted([o.strip().lower() for o in options])
         norm_q += "|" + "|".join(opts)
-    return hashlib.sha1(norm_q.encode("utf-8")).hexdigest()
+    return hashlib.sha256(norm_q.encode("utf-8")).hexdigest()
 
 
 def get_cached_answer(question: str, options: list[str] | None = None) -> tuple[Any, str, float] | None:
