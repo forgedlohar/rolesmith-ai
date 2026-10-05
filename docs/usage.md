@@ -50,6 +50,30 @@ Or you can run the entire pipeline at once:
 uv run rolesmith-ai run --live --auto-apply
 ```
 
+## Web Dashboard
+
+You can visualize your job applications, view LLM relevance scores, and explore your pipeline through a local web dashboard.
+```bash
+make dashboard
+```
+Open `http://localhost:8000` in your browser.
+
+## Recruiter Communications (Gmail)
+
+Rolesmith AI can securely connect to your Gmail to handle recruiter communications:
+
+1. **Check Emails & Interview Prep**
+   ```bash
+   make check-emails
+   ```
+   Scans your inbox for recruiter emails, decides if they require a reply, and saves a drafted response for you. If it's an interview request, it generates a `prep_sheet.md` with company background and likely questions.
+
+2. **Automated Follow-ups**
+   ```bash
+   make follow-ups
+   ```
+   Queries your database for jobs applied to more than 7 days ago, and drafts polite follow-up emails in your Gmail.
+
 ## Model Context Protocol (MCP)
 
 To use Rolesmith via Claude Desktop, add it to your `claude_desktop_config.json`:

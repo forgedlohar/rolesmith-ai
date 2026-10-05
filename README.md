@@ -8,8 +8,11 @@ Rolesmith AI builds upon the foundational web automation of `job-apply-mcp`, ext
 
 - **Multi-Platform Automation**: Supports LinkedIn, Naukri, Wellfound, and Indeed India.
 - **LLM-Powered Rating**: Evaluates Job Descriptions against your profile to find high-match roles and identify red flags.
-- **Resume Tailoring**: Automatically highlights relevant experiences in your resume for specific applications using LaTeX compilation.
+- **Beautiful ATS PDF Resumes**: Dynamically compiles and generates gorgeous, tailored PDF resumes on the fly using `reportlab`.
 - **Smart Form Completion**: Answers dynamic application form questions accurately using context from your profile and LLM inference.
+- **Web Dashboard**: Monitor your job search pipeline, inspect LLM ratings, and review applications visually via `make dashboard`.
+- **Gmail Automation & Follow-ups**: Connects to Gmail to detect recruiter emails, intelligently drafts responses, and auto-drafts follow-up emails for applications older than 7 days.
+- **Interview Prep**: Instantly generates an Interview Prep Cheat Sheet (company summary, JD, and 5 technical/behavioral questions) when an interview is requested.
 - **MCP Integration**: Fully compatible as a Model Context Protocol (MCP) server for Claude Desktop.
 
 ## Documentation
@@ -49,6 +52,19 @@ Run individual stages or the entire pipeline at once:
 uv run rolesmith-ai discover
 uv run rolesmith-ai tailor
 uv run rolesmith-ai apply --live
+```
+
+### Dashboard & Analytics
+Run the sleek web dashboard to track your application metrics, view jobs by status, and monitor LLM ratings:
+```bash
+make dashboard
+```
+
+### Recruiter Communications
+Automate your inbox. The following commands scan your Gmail, draft highly contextual replies to recruiters, and draft follow-up emails for unresponsive applications:
+```bash
+make check-emails
+make follow-ups
 ```
 Or run the full pipeline in one command:
 ```bash
