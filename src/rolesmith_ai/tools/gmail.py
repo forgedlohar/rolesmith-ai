@@ -2,19 +2,24 @@ import base64
 import logging
 from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
+from typing import List, Optional
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from rolesmith_ai.config import APP_DIR, load_config
 from rolesmith_ai.pipeline.llm import _call_api, complete_json
 from rolesmith_ai.store import _connect
+from rolesmith_ai.tools.matcher import match_email_to_job
 
-SCOPES = ["https://www.googleapis.com/auth/gmail.modify"]
+SCOPES = [
+    "https://www.googleapis.com/auth/gmail.modify",
+    "https://www.googleapis.com/auth/gmail.settings.basic",
+]
 logger = logging.getLogger(__name__)
 
 
@@ -77,11 +82,30 @@ def get_message_body(payload):
     return ""
 
 
-class ReplyDecision(BaseModel):
-    should_reply: bool
-    is_interview_request: bool
-    reason: str
-    reply_draft: str
+class Person(BaseModel):
+    name: str = Field(description="Name of the person")
+    title: Optional[str] = Field(None, description="Job title if mentioned")
+    email: Optional[str] = Field(None, description="Email address if mentioned")
+
+
+class DateItem(BaseModel):
+    date: str = Field(description="Date in YYYY-MM-DD or descriptive text")
+    description: str = Field(description="What is happening on this date")
+
+
+class ActionItem(BaseModel):
+    task: str = Field(description="Task to complete")
+    deadline: Optional[str] = Field(None, description="Deadline if provided")
+
+
+class EmailClassification(BaseModel):
+    classification: str = Field(description="Must be one of: confirmation, rejection, interview, follow_up, offer, noise")
+    should_reply: bool = Field(description="Whether we should draft a reply to this email")
+    reply_draft: str = Field(description="Draft response text if should_reply is True, otherwise empty string")
+    summary: str = Field(description="One-sentence summary of the email")
+    people: List[Person] = Field(default_factory=list)
+    dates: List[DateItem] = Field(default_factory=list)
+    action_items: List[ActionItem] = Field(default_factory=list)
 
 
 def check_job_emails() -> dict:
@@ -103,6 +127,11 @@ def check_job_emails() -> dict:
         if not messages:
             return {"status": "success", "message": "No new job-related emails found.", "drafts_created": 0}
 
+        # Get all applied jobs for matching
+        with _connect() as conn:
+            cur = conn.execute("SELECT j.url as job_url, j.title, j.company, a.applied_at FROM jobs j JOIN applications a ON j.url = a.job_url WHERE a.status NOT IN ('rejected', 'offer', 'ghosted')")
+            applied_jobs = [dict(r) for r in cur.fetchall()]
+
         drafts_created = 0
         for msg_meta in messages:
             msg = service.users().messages().get(userId="me", id=msg_meta["id"], format="full").execute()
@@ -111,6 +140,7 @@ def check_job_emails() -> dict:
 
             subject = next((h["value"] for h in headers if h["name"].lower() == "subject"), "No Subject")
             sender = next((h["value"] for h in headers if h["name"].lower() == "from"), "Unknown Sender")
+            date_str = next((h["value"] for h in headers if h["name"].lower() == "date"), "")
 
             body = get_message_body(payload)
             snippet = msg.get("snippet", "")
@@ -119,17 +149,48 @@ def check_job_emails() -> dict:
             if not content_to_analyze.strip():
                 continue
 
-            # Check if we should reply and what to say
-            system_prompt = f"You are an AI assistant managing job applications for the candidate.\nCandidate Profile:\n{candidate_context}"
-            user_prompt = (
-                f"Email from: {sender}\nSubject: {subject}\nContent:\n{content_to_analyze[:2000]}\n\n"
-                "Determine if this email requires a reply (e.g., asking for availability for an interview, "
-                "asking for more information, offer negotiation). If it's an automated rejection or a "
-                "do-not-reply email, DO NOT reply. Also, set is_interview_request to true if they are inviting the candidate to an interview."
+            email_dict = {"sender": sender, "subject": subject, "body": content_to_analyze, "date": date_str}
+
+            match = match_email_to_job(email_dict, applied_jobs)
+            if match:
+                logger.info(f"Matched email '{subject}' to job URL: {match['job_url']} with score {match['score']}")
+
+            system_prompt = (
+                "You are an email classifier and reply drafter for an Application Tracking System.\n"
+                f"Candidate Profile:\n{candidate_context}\n\n"
+                "Classify the email into exactly one category:\n"
+                "- confirmation: Application receipt acknowledged\n"
+                "- rejection: Candidate not selected\n"
+                "- interview: Interview invitation or scheduling\n"
+                "- follow_up: Request for additional info or assessments\n"
+                "- offer: Job offer or compensation discussion\n"
+                "- noise: Marketing, newsletters, unrelated\n\n"
+                "Extract people, dates, and action items. If should_reply is true, provide a reply_draft."
             )
 
+            user_prompt = f"Email from: {sender}\nSubject: {subject}\nDate: {date_str}\nContent:\n{content_to_analyze[:3000]}\n\n"
+
             try:
-                result = complete_json(system_prompt, user_prompt, ReplyDecision)
+                result = complete_json(system_prompt, user_prompt, EmailClassification)
+
+                # Advance state machine in DB if matched
+                if match and result.classification != "noise":
+                    # map classification to DB status (if applicable)
+                    new_status = None
+                    if result.classification == "rejection":
+                        new_status = "rejected"
+                    elif result.classification == "interview":
+                        new_status = "interviewing"
+                    elif result.classification == "offer":
+                        new_status = "offer"
+
+                    if new_status:
+                        with _connect() as conn:
+                            conn.execute("UPDATE applications SET status = ? WHERE job_url = ?", (new_status, match["job_url"]))
+                            # Also update jobs table for consistency
+                            conn.execute("UPDATE jobs SET status = ? WHERE url = ?", (new_status, match["job_url"]))
+                            conn.commit()
+                        logger.info(f"Updated job {match['job_url']} status to {new_status}")
 
                 if result.should_reply and result.reply_draft:
                     draft_id = create_draft_reply(service, msg["id"], msg["threadId"], sender, subject, result.reply_draft)
@@ -138,9 +199,9 @@ def check_job_emails() -> dict:
                         drafts_created += 1
                         # Mark as read so we don't process it again
                         service.users().messages().modify(userId="me", id=msg["id"], body={"removeLabelIds": ["UNREAD"]}).execute()
-                        logger.info(f"Created draft reply for email from {sender}")
+                        logger.info(f"Created draft reply for email from {sender} (Classification: {result.classification})")
 
-                        if getattr(result, "is_interview_request", False):
+                        if result.classification == "interview":
                             _generate_prep_sheet(sender, subject, content_to_analyze)
             except Exception as e:
                 logger.error(f"Failed to process email {msg['id']}: {e}")
