@@ -1,5 +1,6 @@
 import base64
 import logging
+from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
 
 from google.auth.transport.requests import Request
@@ -10,7 +11,8 @@ from googleapiclient.errors import HttpError
 from pydantic import BaseModel
 
 from rolesmith_ai.config import APP_DIR, load_config
-from rolesmith_ai.pipeline.llm import complete_json
+from rolesmith_ai.pipeline.llm import _call_api, complete_json
+from rolesmith_ai.store import _connect
 
 SCOPES = ["https://www.googleapis.com/auth/gmail.modify"]
 logger = logging.getLogger(__name__)
@@ -77,6 +79,7 @@ def get_message_body(payload):
 
 class ReplyDecision(BaseModel):
     should_reply: bool
+    is_interview_request: bool
     reason: str
     reply_draft: str
 
@@ -122,7 +125,7 @@ def check_job_emails() -> dict:
                 f"Email from: {sender}\nSubject: {subject}\nContent:\n{content_to_analyze[:2000]}\n\n"
                 "Determine if this email requires a reply (e.g., asking for availability for an interview, "
                 "asking for more information, offer negotiation). If it's an automated rejection or a "
-                "do-not-reply email, DO NOT reply."
+                "do-not-reply email, DO NOT reply. Also, set is_interview_request to true if they are inviting the candidate to an interview."
             )
 
             try:
@@ -136,6 +139,9 @@ def check_job_emails() -> dict:
                         # Mark as read so we don't process it again
                         service.users().messages().modify(userId="me", id=msg["id"], body={"removeLabelIds": ["UNREAD"]}).execute()
                         logger.info(f"Created draft reply for email from {sender}")
+
+                        if getattr(result, "is_interview_request", False):
+                            _generate_prep_sheet(sender, subject, content_to_analyze)
             except Exception as e:
                 logger.error(f"Failed to process email {msg['id']}: {e}")
 
@@ -143,3 +149,91 @@ def check_job_emails() -> dict:
 
     except HttpError as error:
         return {"status": "error", "message": f"Gmail API error: {error}"}
+
+
+def _generate_prep_sheet(sender: str, subject: str, email_content: str):
+    """Generate a markdown interview prep sheet when an interview is detected."""
+    prompt = (
+        f"Email from: {sender}\\nSubject: {subject}\\nContent:\\n{email_content[:2000]}\\n\\n"
+        "Based on this interview request, generate a markdown 'Interview Prep Cheat Sheet'. "
+        "Include a summary of what you can infer about the company, the job role, and list 5 likely "
+        "technical or behavioral questions they will ask. Be concise and professional."
+    )
+
+    try:
+        prep_sheet_md = _call_api(prompt, 8000)
+
+        # Save to file
+        safe_name = "".join([c if c.isalnum() else "_" for c in sender.split("@")[0]])
+        filepath = APP_DIR / f"interview_prep_{safe_name}.md"
+        with open(filepath, "w") as f:
+            f.write(prep_sheet_md)
+        logger.info(f"Generated interview prep sheet at {filepath}")
+    except Exception as e:
+        logger.error(f"Failed to generate prep sheet: {e}")
+
+
+def draft_followups() -> dict:
+    """Draft follow-up emails for jobs applied to over 7 days ago with no response."""
+    try:
+        service = get_gmail_service()
+    except Exception as e:
+        return {"status": "error", "message": f"Gmail Auth failed: {str(e)}"}
+
+    config = load_config()
+
+    with _connect() as conn:
+        seven_days_ago = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+
+        cur = conn.execute(
+            """
+            SELECT a.job_url, j.company, j.title, a.applied_at 
+            FROM applications a
+            JOIN jobs j ON a.job_url = j.url
+            WHERE a.status = 'applied' AND a.applied_at < ?
+            LIMIT 50
+            """,
+            (seven_days_ago,),
+        )
+        old_applications = [dict(r) for r in cur.fetchall()]
+
+    if not old_applications:
+        return {"status": "success", "message": "No old applications needing follow-up.", "drafts_created": 0}
+
+    drafts_created = 0
+    for app in old_applications:
+        try:
+            to_email = ""
+            subject = f"Following up: Application for {app['title']} at {app['company']}"
+
+            body = (
+                f"Hi Hiring Team,\n\n"
+                f"I hope this email finds you well.\n\n"
+                f"I am writing to follow up on my application for the {app['title']} position submitted recently. "
+                f"I remain very interested in the opportunity to join {app['company']} and would love to know if there are any updates regarding my candidacy.\n\n"
+                f"Please let me know if you need any additional information or work samples from my end.\n\n"
+                f"Best regards,\n"
+                f"{config.name}\n"
+                f"{config.phone}"
+            )
+
+            message = EmailMessage()
+            message.set_content(body)
+            message["To"] = to_email
+            message["Subject"] = subject
+
+            encoded_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
+            create_message = {"message": {"raw": encoded_message}}
+
+            service.users().drafts().create(userId="me", body=create_message).execute()
+
+            conn = _connect()
+            conn.execute("UPDATE applications SET status = 'followed_up' WHERE job_url = ?", (app["job_url"],))
+            conn.commit()
+            conn.close()
+
+            drafts_created += 1
+        except Exception as e:
+            logger.error(f"Failed to create follow-up for {app['company']}: {e}")
+
+    return {"status": "success", "message": f"Created {drafts_created} follow-up drafts.", "drafts_created": drafts_created}
