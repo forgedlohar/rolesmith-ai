@@ -5,9 +5,10 @@
 - Phase 1: Restructure and rename (behaviour-preserving)
 - Phase 2: uv + pyproject
 - Phase 3: Secrets and configuration with .env
+- Phase 4: Makefile (self-documenting)
 
 ## In Progress
-- Phase 4: Makefile (self-documenting)
+- Phase 5: Production quality (Linting, Logging, Resilience)
 
 ## Open Questions
 - There is no upstream LICENSE file. Added NOTICE file, but licensing gap needs decision.
