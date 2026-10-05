@@ -1,7 +1,10 @@
 # Antigravity Integration
 
-!!! note "Fun Fact"
-    Jio provides free Antigravity for its users!
+!!! note "Fun Fact: Free Antigravity via Jio"
+    Jio currently provides **18 months of free Google AI Pro** (which includes Antigravity and Gemini Advanced, worth ₹35,100) for its users!
+    
+    To be eligible, you must be 18+ and on an active unlimited 5G plan of ₹349 or above. The plan includes Gemini Advanced, 5TB storage, Deep Research, and expanded limits for Gemini Code Assist & CLI. 
+    [Click here to view the full offer details and claim it.](https://www.jio.com/google-gemini-offer/)
 
 Rolesmith AI was built from the ground up to operate as a Model Context Protocol (MCP) server. This means you can plug it directly into **Google Antigravity**, allowing the AI agent to completely take over your job search.
 
