@@ -16,6 +16,7 @@ from typing import Any
 from playwright.async_api import Page, async_playwright
 
 from rolesmith_ai.config import APP_DIR, AppConfig, get_user_agent, load_config
+from rolesmith_ai.pipeline.exceptions import ReviewNeeded
 from rolesmith_ai.pipeline.llm_answers import get_answer
 from rolesmith_ai.pipeline.settings import settings
 from rolesmith_ai.store import (
@@ -475,7 +476,11 @@ def _classify_linkedin_text_answer(
     try:
         ans = get_answer(label)
         if ans is not None:
+            if str(ans).lower() == "unknown":
+                raise ReviewNeeded(f"Answer for '{label}' is unknown")
             return str(ans)
+    except ReviewNeeded:
+        raise
     except Exception:
         pass
 
@@ -554,7 +559,11 @@ def _classify_linkedin_select(
     try:
         ans = get_answer(label, options=real)
         if ans is not None:
+            if str(ans).lower() == "unknown":
+                raise ReviewNeeded(f"Answer for '{label}' is unknown")
             return str(ans)
+    except ReviewNeeded:
+        raise
     except Exception:
         pass
 
@@ -740,6 +749,8 @@ async def _apply_linkedin(page: Page, cfg: AppConfig, cover_note: str) -> dict[s
                 try:
                     await locator.fill(value)
                     qa_log.append({"question": f["label"][:120], "answer": value, "type": "text"})
+                except ReviewNeeded:
+                    raise
                 except Exception as exc:
                     logger.warning("LinkedIn: failed to fill %r: %s", f["label"], exc)
 
@@ -985,6 +996,8 @@ async def _apply_linkedin(page: Page, cfg: AppConfig, cover_note: str) -> dict[s
             "error": f"LinkedIn apply flow did not complete — stuck before submit (answered {len(qa_log)} questions)",
             "qa_log": qa_log,
         }
+    except ReviewNeeded as exc:
+        return {"success": False, "status": "review_needed", "error": str(exc)}
     except Exception as exc:
         return {"success": False, "error": str(exc)}
 
@@ -1524,6 +1537,8 @@ async def _apply_naukri(page: Page, cfg: AppConfig, cover_note: str) -> dict[str
             "confirmation": f"Naukri apply completed (answered {answered} questions)",
             "qa_log": qa_log,
         }
+    except ReviewNeeded as exc:
+        return {"success": False, "status": "review_needed", "error": str(exc)}
     except Exception as exc:
         return {"success": False, "error": str(exc)}
 
@@ -1889,7 +1904,7 @@ async def apply_job(
             await browser.close()
 
     # Track in DB
-    status = "applied" if result.get("success") else "failed"
+    status = "applied" if result.get("success") else result.get("status", "failed")
     try:
         record_application(
             job_title=job_title or "Unknown",
@@ -2034,7 +2049,7 @@ async def bulk_apply(
                 job_cfg,
                 job.get("cover_note", ""),
             )
-            status = "applied" if result.get("success") else "failed"
+            status = "applied" if result.get("success") else result.get("status", "failed")
             try:
                 record_application(
                     job_title=title,

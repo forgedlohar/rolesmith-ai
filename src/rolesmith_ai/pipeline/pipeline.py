@@ -180,7 +180,7 @@ async def apply_queue(run_id: str, auto_apply: bool = False, dry_run: bool = Tru
     run_log = RUNS[run_id]["log"]
     run_log.append(f"Starting apply queue (dry_run={dry_run}, auto_apply={auto_apply})...")
 
-    tailored_jobs = get_jobs_by_status("tailored")
+    tailored_jobs = get_jobs_by_status("tailored") + get_jobs_by_status("approved")
     jobs_to_apply = []
 
     for j in tailored_jobs:
@@ -193,6 +193,13 @@ async def apply_queue(run_id: str, auto_apply: bool = False, dry_run: bool = Tru
             if rating["score"] < settings.pipeline.auto_apply_min_score or rating["jd_quality"] != "full":
                 run_log.append(f"Skipping {j['company']} - score {rating['score']} too low or jd_quality {rating['jd_quality']} not full for unattended.")
                 continue
+        elif not auto_apply and not dry_run:
+            if j["status"] != "approved":
+                seniority = rating.get("seniority_fit", "").lower()
+                if rating["score"] >= settings.pipeline.review_high_score or "poor" in seniority or "overqualified" in seniority:
+                    upsert_job(j["url"], status="review_needed", error="High score or seniority mismatch requires manual approval")
+                    run_log.append(f"Review needed for {j['company']} before applying")
+                    continue
 
         jobs_to_apply.append(j)
 
@@ -229,6 +236,9 @@ async def apply_queue(run_id: str, auto_apply: bool = False, dry_run: bool = Tru
             if res.get("success"):
                 upsert_job(j["url"], status="applied")
                 run_log.append(f"Successfully applied to {j['company']}")
+            elif res.get("status") == "review_needed":
+                upsert_job(j["url"], status="review_needed", error=res.get("error", "Flagged answer"))
+                run_log.append(f"Review needed for {j['company']}: {res.get('error')}")
             else:
                 upsert_job(j["url"], status="failed", error=res.get("error", "Unknown error"))
                 run_log.append(f"Failed to apply to {j['company']}: {res.get('error')}")

@@ -6,13 +6,12 @@ import uuid
 from pydantic import BaseModel
 
 from rolesmith_ai.pipeline.pipeline import RUNS, _background_task, apply_queue, tailor_shortlist
-from rolesmith_ai.store import get_jobs_by_status
+from rolesmith_ai.store import get_job, get_jobs_by_status, init_db, save_answer, upsert_job
 
 from .llm import LLMError, complete_json
 from .pipeline import discover_and_rate
 from .profile_store import init_template, sync_into_config
 from .settings import settings
-from .store import init_db, save_answer
 
 
 class DummyResponse(BaseModel):
@@ -103,6 +102,19 @@ def cmd_answers(args):
         print("Use --set 'Question' 'Answer'")
 
 
+def cmd_approve(args):
+    url = args.url
+    job = get_job(url)
+    if not job:
+        print(f"Job not found for URL: {url}")
+        return
+    if job["status"] != "review_needed":
+        print(f"Job status is {job['status']}, not review_needed.")
+        return
+    upsert_job(url, status="approved")
+    print(f"Approved job {job['company']} - {job['title']}")
+
+
 def main():
     parser = argparse.ArgumentParser(prog="rolesmith-ai")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -132,6 +144,9 @@ def main():
     p_ans = subparsers.add_parser("answers")
     p_ans.add_argument("--set", nargs=2, metavar=("QUESTION", "ANSWER"))
 
+    p_appr = subparsers.add_parser("approve")
+    p_appr.add_argument("url", help="URL of the job to approve")
+
     args = parser.parse_args()
 
     if args.command == "init":
@@ -152,5 +167,7 @@ def main():
         cmd_apply(args)
     elif args.command == "answers":
         cmd_answers(args)
+    elif args.command == "approve":
+        cmd_approve(args)
 
     return 0

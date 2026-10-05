@@ -24,6 +24,7 @@ class PipelineSettings(BaseSettings):
     rate_min_score: int = Field(default=65)
     tailor_min_score: int = Field(default=70)
     auto_apply_min_score: int = Field(default=80)
+    review_high_score: int = Field(default=90)
     max_per_day: int = Field(default=15)
     max_per_company: int = Field(default=2)
     max_bullets_per_role: int = Field(default=4)

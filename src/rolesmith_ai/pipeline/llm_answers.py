@@ -51,17 +51,17 @@ def is_sensitive(question: str) -> bool:
     return False
 
 
-def get_answer(question: str, options: list[str] | None = None) -> Any | None:
+def get_answer(question: str, options: list[str] | None = None) -> Any | str:
     try:
         if is_sensitive(question):
-            return None
+            return "unknown"
 
         cached = get_cached_answer(question, options)
         if cached:
             ans, src, conf = cached
-            if conf >= 0.5:
+            if conf >= 0.5 and str(ans).lower() != "unknown":
                 return ans
-            return None
+            return "unknown"
 
         master = load_master_profile()
         cfg = config.load_config()
@@ -96,9 +96,9 @@ Question:
             return None
 
         # Post-flight checks
-        if ans_obj.confidence < 0.5:
-            save_answer(question, options, ans_obj.answer, "llm", ans_obj.confidence)
-            return None
+        if ans_obj.confidence < 0.5 or str(ans_obj.answer).lower() == "none" or str(ans_obj.answer).lower() == "unknown":
+            save_answer(question, options, "unknown", "llm", ans_obj.confidence)
+            return "unknown"
 
         if options and ans_obj.answer not in options:
             # Maybe case mismatch?
@@ -107,11 +107,10 @@ Question:
                     ans_obj.answer = o
                     break
             else:
-                save_answer(question, options, ans_obj.answer, "llm", ans_obj.confidence)
-                return None
+                save_answer(question, options, "unknown", "llm", ans_obj.confidence)
+                return "unknown"
 
         save_answer(question, options, ans_obj.answer, "llm", ans_obj.confidence)
         return ans_obj.answer
     except Exception:
-        # Must never raise into the caller
-        return None
+        return "unknown"
