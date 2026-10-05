@@ -1,21 +1,13 @@
-# STATE.md
+# STATE
 
 ## Done
-- Cloned `job-apply-mcp`
-- Phase 1 & 2: Setup workspace, requirements, and venv
-- Phase 3: Create `autopilot/` package (`settings.py`, `models.py`, `llm.py`, `profile_store.py`, `store.py`)
-- Phase 4: Implement `jd.py`, `rating.py`, `tailor.py`, `render.py`
-- Phase 5: Implement `llm_answers.py`, `pipeline.py`, `cli.py`, `__main__.py`
-- Phase 6: Modify base files (`tools/profile.py`, `tools/apply.py`, `server.py`)
-- Phase 7: Write tests and pass them
-- Phase 8: Write AUTOPILOT.md documentation
+- Phase 0: Baseline (Tests run: 3 passed, 0 failures. No LICENSE found, created NOTICE).
 
 ## In Progress
-- Verify all changes and run the full suite
-
-## Decisions
-- Work in phases and commit after each phase
-- Isolate the new feature within the `autopilot` package
+- Phase 1: Restructure and rename (behaviour-preserving)
 
 ## Open Questions
-- None so far
+- There is no upstream LICENSE file. Added NOTICE file, but licensing gap needs decision.
+
+## Decisions
+- Using variables in `src/rolesmith/branding.py` as source of truth for app name, pkg, cli, env prefix.
