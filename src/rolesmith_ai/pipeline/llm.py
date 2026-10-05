@@ -2,7 +2,7 @@ import json
 import re
 import urllib.error
 import urllib.request
-from typing import TypeVar
+from typing import Any, TypeVar
 
 from pydantic import BaseModel, ValidationError
 
@@ -32,13 +32,12 @@ def extract_json(text: str) -> str:
 
 
 def _call_api(system: str, user: str, use_json_mode: bool = True) -> str:
-    req_data = {
+    req_data: dict[str, Any] = {
         "model": settings.llm.model,
         "messages": [
             {"role": "system", "content": system},
             {"role": "user", "content": user},
         ],
-        **settings.llm.extra_body,
     }
 
     if use_json_mode and settings.llm.json_mode:

@@ -291,7 +291,7 @@ def record_application(
                 confirmation,
             ),
         )
-        return cur.lastrowid
+        return cur.lastrowid or 0
 
 
 def is_already_applied(job_url: str) -> bool:

@@ -2,6 +2,7 @@
 apply_job   — automate a single application via Playwright.
 bulk_apply  — iterate over a job list with delays, skip duplicates.
 """
+
 from __future__ import annotations
 
 import asyncio

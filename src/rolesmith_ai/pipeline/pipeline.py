@@ -135,10 +135,11 @@ async def tailor_shortlist(run_id: str, force_url: str | None = None):
     logger.info("Starting tailor shortlist...")
 
     if force_url:
-        jobs = [get_job(force_url)]
-        if not jobs[0] or jobs[0]["status"] not in ("rated", "discovered"):
+        job = get_job(force_url)
+        if not job or job["status"] not in ("rated", "discovered"):
             logger.warning(f"Job {force_url} not ready for tailoring.")
             return
+        jobs = [job]
     else:
         # Get rated jobs that meet threshold
         all_rated = get_jobs_by_status("rated")

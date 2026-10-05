@@ -1,6 +1,7 @@
 """
 Candidate profile definition and job relevance matching logic.
 """
+
 from __future__ import annotations
 
 import json
@@ -8,6 +9,7 @@ import re
 from dataclasses import dataclass
 from difflib import SequenceMatcher
 from pathlib import Path
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -140,7 +142,7 @@ def _load_profile() -> CandidateProfile:
         if config_path.exists():
             raw_config = json.loads(config_path.read_text())
             cand_profile = raw_config.get("candidate_profile", {})
-            kwargs: dict[str, __import__("typing").Any] = {}
+            kwargs: dict[str, Any] = {}
             for k, v in cand_profile.items():
                 if k in CandidateProfile.__annotations__:
                     if isinstance(v, list):

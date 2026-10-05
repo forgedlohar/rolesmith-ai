@@ -37,10 +37,35 @@ For full installation and MCP setup instructions, see the [Usage Guide](docs/usa
 
 You can run Rolesmith AI as a standalone CLI or connect it to Claude Desktop as an MCP server.
 
+### Startup Checklist
+Before running automation, ensure your setup is ready:
 ```bash
-uv run python3 -m rolesmith_ai.pipeline discover
-uv run python3 -m rolesmith_ai.pipeline tailor
-uv run python3 -m rolesmith_ai.pipeline apply --live
+uv run rolesmith-ai doctor
+```
+
+### Automation Lifecycle
+Run individual stages or the entire pipeline at once:
+```bash
+uv run rolesmith-ai discover
+uv run rolesmith-ai tailor
+uv run rolesmith-ai apply --live
+```
+Or run the full pipeline in one command:
+```bash
+uv run rolesmith-ai run --live --auto-apply
+```
+
+### Human-in-the-Loop Review
+If a job requires manual approval (due to high seniority, exceptional match score, or an unanswerable question), the pipeline pauses and sets the status to `review_needed`.
+
+Approve jobs to let the pipeline continue:
+```bash
+uv run rolesmith-ai approve "https://linkedin.com/jobs/view/123"
+```
+
+If bot detection is triggered, run the interactive login:
+```bash
+uv run rolesmith-ai login linkedin
 ```
 
 ## Attribution
