@@ -22,6 +22,10 @@ def init_db():
             CREATE TABLE IF NOT EXISTS pipeline_jobs (
                 url TEXT PRIMARY KEY,
                 norm_url TEXT NOT NULL,
+                title TEXT,
+                company TEXT,
+                platform TEXT,
+                description TEXT,
                 status TEXT NOT NULL,
                 llm_score INTEGER,
                 verdict TEXT,
