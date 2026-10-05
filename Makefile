@@ -29,3 +29,6 @@ run: ## Run the MCP server locally over stdio
 
 dashboard: ## Run the local dashboard UI
 	uv run rolesmith_ai-dashboard
+
+check-emails: ## Scan Gmail for job replies and auto-draft responses
+	uv run rolesmith_ai check-emails

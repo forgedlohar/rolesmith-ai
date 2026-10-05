@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import uvicorn
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -53,8 +54,6 @@ async def get_recent_jobs(limit: int = 50):
 
 
 def main():
-    import uvicorn
-
     uvicorn.run("rolesmith_ai.dashboard:app", host="127.0.0.1", port=8000, reload=True)
 
 

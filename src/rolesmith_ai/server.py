@@ -23,6 +23,7 @@ from rolesmith_ai.branding import APP_NAME
 from rolesmith_ai.pipeline.pipeline import RUNS, start_background
 from rolesmith_ai.store import get_application_summary, get_jobs_by_status, save_answer
 from rolesmith_ai.tools.apply import apply_job, bulk_apply
+from rolesmith_ai.tools.gmail import check_job_emails
 from rolesmith_ai.tools.search import filter_jobs, search_jobs
 from rolesmith_ai.tools.session import SUPPORTED_PLATFORMS, interactive_login
 
@@ -280,6 +281,14 @@ TOOLS: list[Tool] = [
             "required": ["question", "answer"],
         },
     ),
+    Tool(
+        name="check_job_emails",
+        description="Scan unread emails in Gmail to find recruiter/job emails and automatically draft professional replies.",
+        inputSchema={
+            "type": "object",
+            "properties": {},
+        },
+    ),
 ]
 
 
@@ -398,6 +407,10 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
         elif name == "review_form_answers":
             save_answer(arguments["question"], None, arguments["answer"], "user", 1.0)
             return [TextContent(type="text", text=json.dumps({"status": "saved"}, indent=2))]
+
+        elif name == "check_job_emails":
+            res_gmail = check_job_emails()
+            return [TextContent(type="text", text=json.dumps(res_gmail, indent=2))]
 
         else:
             return [
