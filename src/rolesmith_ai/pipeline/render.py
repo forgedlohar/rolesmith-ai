@@ -27,9 +27,10 @@ def _draw_resume(c: canvas.Canvas, draft: ResumeDraft, master: MasterProfile, fo
 
     line_height = font_size * 1.35
 
-    primary_color = "#1f2937"  # Dark gray/black
-    secondary_color = "#4b5563"  # Medium gray
-    accent_color = "#2563eb"  # Professional blue
+    # STRICT ATS SETTINGS: All text must be black. No colors.
+    primary_color = "#000000"
+    secondary_color = "#000000"
+    accent_color = "#000000"
 
     c.setStrokeColor(secondary_color)
 
@@ -44,8 +45,7 @@ def _draw_resume(c: canvas.Canvas, draft: ResumeDraft, master: MasterProfile, fo
         c.setFont("Helvetica-Bold", font_size + 2)
         c.setFillColor(primary_color)
         c.drawString(x_margin, y, title.upper())
-        c.setLineWidth(0.5)
-        c.line(x_margin, y - 4, width - x_margin, y - 4)
+        # ATS OPTIMIZATION: Remove horizontal lines which can break some legacy parsers.
         return y - line_height * 1.5, p_num
 
     # Name and Contact
@@ -93,7 +93,8 @@ def _draw_resume(c: canvas.Canvas, draft: ResumeDraft, master: MasterProfile, fo
 
     # Skills
     if draft.skills:
-        y_pos, page_num = draw_section_header("Skills", y_pos, c, page_num)
+        # ATS OPTIMIZATION: Use exact standard section header
+        y_pos, page_num = draw_section_header("TECHNICAL SKILLS", y_pos, c, page_num)
         c.setFont("Helvetica", font_size)
         c.setFillColor(primary_color)
         for cat, skills in draft.skills.items():
@@ -107,7 +108,8 @@ def _draw_resume(c: canvas.Canvas, draft: ResumeDraft, master: MasterProfile, fo
 
     # Experience
     if draft.experience:
-        y_pos, page_num = draw_section_header("Experience", y_pos, c, page_num)
+        # ATS OPTIMIZATION: Use exact standard section header
+        y_pos, page_num = draw_section_header("PROFESSIONAL EXPERIENCE", y_pos, c, page_num)
         chars_per_line = int((width - 2 * x_margin - 15) / (font_size * 0.45))
 
         for exp in draft.experience:
