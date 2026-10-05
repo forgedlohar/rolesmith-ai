@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 import sqlite3
 import uuid
 from datetime import datetime, timedelta
@@ -18,6 +19,8 @@ from .rating import rate_job
 from .render import render_resume
 from .settings import settings
 from .tailor import tailor_resume
+
+logger = logging.getLogger(__name__)
 
 RUNS: dict[str, dict[str, Any]] = {}
 
@@ -43,11 +46,11 @@ def _should_avoid(company: str, avoids: list[str]) -> bool:
 
 
 async def discover_and_rate(run_id: str, fetch_limit: int | None = None):
-    run_log = RUNS[run_id]["log"]
-    run_log.append("Starting discovery and rating...")
+    RUNS.setdefault(run_id, {"log": []})
+    logger.info("Starting discovery and rating...")
 
     if daily_remaining() <= 0:
-        run_log.append("Daily limit reached. Aborting.")
+        logger.warning("Daily limit reached. Aborting.")
         return
 
     master = load_master_profile()
@@ -62,7 +65,7 @@ async def discover_and_rate(run_id: str, fetch_limit: int | None = None):
         fetch_jd=settings.pipeline.fetch_jd_linkedin,
     )
 
-    run_log.append(f"Discovered {len(jobs)} jobs across platforms.")
+    logger.info(f"Discovered {len(jobs)} jobs across platforms.")
 
     # Dedupe and pre-filter
     seen = set()
@@ -94,13 +97,13 @@ async def discover_and_rate(run_id: str, fetch_limit: int | None = None):
     limit = fetch_limit or settings.pipeline.max_rate_per_run
     to_rate = to_rate[:limit]
 
-    run_log.append(f"Rating {len(to_rate)} jobs...")
+    logger.info(f"Rating {len(to_rate)} jobs...")
 
     rated_count = 0
     for j in to_rate:
         desc = j.get("description", "")
         if not desc and settings.pipeline.jd_enrich:
-            run_log.append(f"Fetching JD for {j['company']} - {j['title']}...")
+            logger.info(f"Fetching JD for {j['company']} - {j['title']}...")
             desc = fetch_jd(j["apply_url"], j["platform"]) or ""
 
         if len(desc) > settings.pipeline.max_jd_chars:
@@ -121,20 +124,20 @@ async def discover_and_rate(run_id: str, fetch_limit: int | None = None):
             )
             rated_count += 1
         except LLMError as e:
-            run_log.append(f"LLM Error during rating. Aborting batch: {e}")
+            logger.error(f"LLM Error during rating. Aborting batch: {e}")
             break
 
-    run_log.append(f"Finished rating {rated_count} jobs.")
+    logger.info(f"Finished rating {rated_count} jobs.")
 
 
 async def tailor_shortlist(run_id: str, force_url: str | None = None):
-    run_log = RUNS[run_id]["log"]
-    run_log.append("Starting tailor shortlist...")
+    RUNS.setdefault(run_id, {"log": []})
+    logger.info("Starting tailor shortlist...")
 
     if force_url:
         jobs = [get_job(force_url)]
         if not jobs[0] or jobs[0]["status"] not in ("rated", "discovered"):
-            run_log.append(f"Job {force_url} not ready for tailoring.")
+            logger.warning(f"Job {force_url} not ready for tailoring.")
             return
     else:
         # Get rated jobs that meet threshold
@@ -150,7 +153,7 @@ async def tailor_shortlist(run_id: str, force_url: str | None = None):
 
         jobs = sorted(jobs, key=lambda x: x["llm_score"], reverse=True)[: settings.pipeline.max_tailor_per_run]
 
-    run_log.append(f"Tailoring resumes for {len(jobs)} jobs...")
+    logger.info(f"Tailoring resumes for {len(jobs)} jobs...")
 
     tailored_count = 0
     for j in jobs:
@@ -168,17 +171,17 @@ async def tailor_shortlist(run_id: str, force_url: str | None = None):
             upsert_job(j["url"], status="tailored", resume_path=pdf_path, cover_note=cover_note)
             tailored_count += 1
             if warnings:
-                run_log.append(f"Tailoring warnings for {j['company']}: {warnings}")
+                logger.warning(f"Tailoring warnings for {j['company']}: {warnings}")
         except LLMError as e:
-            run_log.append(f"LLM Error during tailoring. Aborting batch: {e}")
+            logger.error(f"LLM Error during tailoring. Aborting batch: {e}")
             break
 
-    run_log.append(f"Finished tailoring {tailored_count} resumes.")
+    logger.info(f"Finished tailoring {tailored_count} resumes.")
 
 
 async def apply_queue(run_id: str, auto_apply: bool = False, dry_run: bool = True):
-    run_log = RUNS[run_id]["log"]
-    run_log.append(f"Starting apply queue (dry_run={dry_run}, auto_apply={auto_apply})...")
+    RUNS.setdefault(run_id, {"log": []})
+    logger.info(f"Starting apply queue (dry_run={dry_run}, auto_apply={auto_apply})...")
 
     tailored_jobs = get_jobs_by_status("tailored") + get_jobs_by_status("approved")
     jobs_to_apply = []
@@ -191,27 +194,27 @@ async def apply_queue(run_id: str, auto_apply: bool = False, dry_run: bool = Tru
         rating = json.loads(j["rating_json"])
         if auto_apply and not dry_run:
             if rating["score"] < settings.pipeline.auto_apply_min_score or rating["jd_quality"] != "full":
-                run_log.append(f"Skipping {j['company']} - score {rating['score']} too low or jd_quality {rating['jd_quality']} not full for unattended.")
+                logger.info(f"Skipping {j['company']} - score {rating['score']} too low or jd_quality {rating['jd_quality']} not full for unattended.")
                 continue
         elif not auto_apply and not dry_run:
             if j["status"] != "approved":
                 seniority = rating.get("seniority_fit", "").lower()
                 if rating["score"] >= settings.pipeline.review_high_score or "poor" in seniority or "overqualified" in seniority:
                     upsert_job(j["url"], status="review_needed", error="High score or seniority mismatch requires manual approval")
-                    run_log.append(f"Review needed for {j['company']} before applying")
+                    logger.info(f"Review needed for {j['company']} before applying")
                     continue
 
         jobs_to_apply.append(j)
 
     for j in jobs_to_apply:
         if daily_remaining() <= 0:
-            run_log.append("Daily limit reached. Aborting applies.")
+            logger.warning("Daily limit reached. Aborting applies.")
             break
 
-        run_log.append(f"Applying to {j['company']}...")
+        logger.info(f"Applying to {j['company']}...")
         if dry_run:
             upsert_job(j["url"], status="applied_dry_run")
-            run_log.append(f"[Dry Run] Applied to {j['company']}")
+            logger.info(f"[Dry Run] Applied to {j['company']}")
             continue
 
         # Real apply requires cfg override
@@ -235,13 +238,13 @@ async def apply_queue(run_id: str, auto_apply: bool = False, dry_run: bool = Tru
 
             if res.get("success"):
                 upsert_job(j["url"], status="applied")
-                run_log.append(f"Successfully applied to {j['company']}")
+                logger.info(f"Successfully applied to {j['company']}")
             elif res.get("status") == "review_needed":
                 upsert_job(j["url"], status="review_needed", error=res.get("error", "Flagged answer"))
-                run_log.append(f"Review needed for {j['company']}: {res.get('error')}")
+                logger.warning(f"Review needed for {j['company']}: {res.get('error')}")
             else:
                 upsert_job(j["url"], status="failed", error=res.get("error", "Unknown error"))
-                run_log.append(f"Failed to apply to {j['company']}: {res.get('error')}")
+                logger.error(f"Failed to apply to {j['company']}: {res.get('error')}")
         finally:
             # Restore original
             cfg.resume_path = original_resume
@@ -266,7 +269,7 @@ async def _background_task(run_id: str, action: str, **kwargs):
         RUNS[run_id]["status"] = "completed"
     except Exception as e:
         RUNS[run_id]["status"] = "failed"
-        RUNS[run_id]["log"].append(f"Error: {e!s}")
+        logger.error(f"Background task {action} failed: {e!s}")
 
 
 def start_background(action: str, **kwargs) -> str:

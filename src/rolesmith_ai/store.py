@@ -16,6 +16,8 @@ from rolesmith_ai.config import DB_PATH, ensure_dirs
 
 def get_db_path() -> str:
     ensure_dirs()
+    if DB_PATH.exists():
+        DB_PATH.chmod(0o600)
     return str(DB_PATH)
 
 

@@ -108,6 +108,7 @@ async def save_cookies_from_context(context: BrowserContext, platform: str) -> i
     cookies = await context.cookies()
     path = _cookie_path(platform)
     path.write_text(json.dumps(cookies, indent=2))
+    path.chmod(0o600)
     logger.info("Saved %d cookies for %s", len(cookies), platform)
     return len(cookies)
 

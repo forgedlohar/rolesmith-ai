@@ -1884,7 +1884,7 @@ async def apply_job(
             await context.close() if is_persistent else await browser.close()
             return {
                 "success": False,
-                "error": (f"CAPTCHA detected on {platform}. Please run save_session to log in manually, then retry."),
+                "error": (f"CAPTCHA detected on {platform}. Please run 'rolesmith-ai login' to log in manually, then retry."),
                 "captcha": True,
             }
 
@@ -1938,7 +1938,7 @@ async def _apply_in_tab(
         await page.wait_for_timeout(2000 if platform != "linkedin" else 3000)
 
         if await _detect_captcha(page):
-            return {"success": False, "error": "CAPTCHA detected", "captcha": True}
+            return {"success": False, "error": "CAPTCHA detected. Please run 'rolesmith-ai login' to log in manually, then retry.", "captcha": True}
 
         applyer = PLATFORM_APPLYERS.get(platform)
         if not applyer:
