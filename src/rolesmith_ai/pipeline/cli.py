@@ -2,15 +2,17 @@ import argparse
 import asyncio
 import json
 import logging
+import os
 import subprocess
 import sys
 import uuid
 
 from pydantic import BaseModel
 
+from rolesmith_ai.config import APP_DIR
 from rolesmith_ai.pipeline.pipeline import RUNS, _background_task, apply_queue, tailor_shortlist
 from rolesmith_ai.store import get_job, get_jobs_by_status, init_db, save_answer, upsert_job
-from rolesmith_ai.tools.gmail import check_job_emails, draft_followups
+from rolesmith_ai.tools.gmail import check_job_emails, draft_followups, get_gmail_service, setup_gmail_filters
 from rolesmith_ai.tools.session import interactive_login
 
 from .llm import complete_json
@@ -164,6 +166,26 @@ def cmd_followup(args):
     print(json.dumps(res, indent=2))
 
 
+def cmd_gmail_setup(args):
+    """Setup Gmail labels and ATS tracking filters."""
+
+    token_path = APP_DIR / "token.json"
+    if token_path.exists():
+        print("Removing old token.json to re-authenticate with new permissions...")
+        os.remove(token_path)
+
+    print("Authenticating with Gmail (browser window will open)...")
+    service = get_gmail_service()
+
+    print("Configuring labels and filters...")
+    result = setup_gmail_filters(service)
+
+    if result["status"] == "success":
+        print(f"SUCCESS: {result['message']}")
+    else:
+        print(f"ERROR: {result['message']}")
+
+
 def main():
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 
@@ -203,6 +225,7 @@ def main():
 
     subparsers.add_parser("check-emails")
     subparsers.add_parser("follow-up")
+    subparsers.add_parser("gmail-setup")
 
     args = parser.parse_args()
 
@@ -232,5 +255,7 @@ def main():
         cmd_check_emails(args)
     elif args.command == "follow-up":
         cmd_followup(args)
+    elif args.command == "gmail-setup":
+        cmd_gmail_setup(args)
 
     return 0

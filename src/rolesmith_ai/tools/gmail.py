@@ -48,6 +48,50 @@ def get_gmail_service():
     return build("gmail", "v1", credentials=creds)
 
 
+def setup_gmail_filters(service):
+    """Create a Rolesmith AI label and filters for ATS emails."""
+    try:
+        # 1. Create or get Label
+        results = service.users().labels().list(userId="me").execute()
+        labels = results.get("labels", [])
+
+        label_id = None
+        for label in labels:
+            if label["name"] == "Rolesmith AI":
+                label_id = label["id"]
+                logger.info("Found existing 'Rolesmith AI' label.")
+                break
+
+        if not label_id:
+            label_body = {"name": "Rolesmith AI", "labelListVisibility": "labelShow", "messageListVisibility": "show"}
+            created_label = service.users().labels().create(userId="me", body=label_body).execute()
+            label_id = created_label["id"]
+            logger.info("Created 'Rolesmith AI' label.")
+
+        # 2. Setup Filter
+        ats_domains = "greenhouse.io OR lever.co OR myworkdayjobs.com OR icims.com OR jobvite.com OR smartrecruiters.com OR workable.com OR ashbyhq.com"
+
+        # Check if filter already exists
+        existing_filters = service.users().settings().filters().list(userId="me").execute().get("filter", [])
+        filter_exists = False
+        for f in existing_filters:
+            if "addLabelIds" in f.get("action", {}) and label_id in f["action"]["addLabelIds"]:
+                filter_exists = True
+                logger.info("Found existing filter for ATS domains.")
+                break
+
+        if not filter_exists:
+            filter_def = {"criteria": {"from": ats_domains}, "action": {"addLabelIds": [label_id]}}
+            service.users().settings().filters().create(userId="me", body=filter_def).execute()
+            logger.info("Created Gmail filter for ATS domains.")
+
+        return {"status": "success", "message": "Gmail labels and filters configured!"}
+
+    except HttpError as error:
+        logger.error(f"Failed to setup filters: {error}")
+        return {"status": "error", "message": str(error)}
+
+
 def create_draft_reply(service, message_id, thread_id, to_email, subject, reply_body):
     """Create a draft reply to a specific email."""
     try:
