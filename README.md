@@ -1,7 +1,7 @@
 # Rolesmith AI
 
 <div align="center">
-  <img src="docs/logo.jpg" alt="Rolesmith AI Logo" width="250" />
+  <img src="docs/logo.svg" alt="Rolesmith AI Logo" width="250" />
 </div>
 
 An LLM "autopilot" pipeline that discovers, rates, and autonomously applies to jobs across multiple platforms, intelligently tailoring your resume per application.
