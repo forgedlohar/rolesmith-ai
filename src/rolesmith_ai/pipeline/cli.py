@@ -10,7 +10,7 @@ from pydantic import BaseModel
 
 from rolesmith_ai.pipeline.pipeline import RUNS, _background_task, apply_queue, tailor_shortlist
 from rolesmith_ai.store import get_job, get_jobs_by_status, init_db, save_answer, upsert_job
-from rolesmith_ai.tools.gmail import check_job_emails
+from rolesmith_ai.tools.gmail import check_job_emails, draft_followups
 from rolesmith_ai.tools.session import interactive_login
 
 from .llm import complete_json
@@ -158,6 +158,12 @@ def cmd_check_emails(args):
     print(json.dumps(res, indent=2))
 
 
+def cmd_followup(args):
+    print("Checking database for old applications and drafting follow-ups...")
+    res = draft_followups()
+    print(json.dumps(res, indent=2))
+
+
 def main():
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 
@@ -196,6 +202,7 @@ def main():
     p_login.add_argument("platform", help="Platform to login to (e.g. linkedin, naukri)")
 
     subparsers.add_parser("check-emails")
+    subparsers.add_parser("follow-up")
 
     args = parser.parse_args()
 
@@ -223,5 +230,7 @@ def main():
         cmd_login(args)
     elif args.command == "check-emails":
         cmd_check_emails(args)
+    elif args.command == "follow-up":
+        cmd_followup(args)
 
     return 0

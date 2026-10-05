@@ -32,3 +32,6 @@ dashboard: ## Run the local dashboard UI
 
 check-emails: ## Scan Gmail for job replies and auto-draft responses
 	uv run rolesmith_ai check-emails
+
+follow-ups: ## Draft follow-up emails for old applications
+	uv run rolesmith_ai follow-up
