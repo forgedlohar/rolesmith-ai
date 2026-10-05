@@ -1,5 +1,8 @@
 # Antigravity Integration
 
+!!! note "Fun Fact"
+    Jio provides free Antigravity for its users!
+
 Rolesmith AI was built from the ground up to operate as a Model Context Protocol (MCP) server. This means you can plug it directly into **Google Antigravity**, allowing the AI agent to completely take over your job search.
 
 When connected to Antigravity, the agent can use Rolesmith's tools to:
