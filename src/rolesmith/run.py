@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Standalone runner for job-apply-mcp.
+Standalone runner for rolesmith.
 No Claude needed — just run: python3 run.py
 """
 
@@ -11,10 +11,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from tools.session import interactive_login, SUPPORTED_PLATFORMS
-from tools.search import search_jobs, filter_jobs
-from tools.apply import bulk_apply
-from tools.tracker import get_application_summary
+from rolesmith.tools.session import interactive_login, SUPPORTED_PLATFORMS
+from rolesmith.tools.search import search_jobs, filter_jobs
+from rolesmith.tools.apply import bulk_apply
+from rolesmith.tools.tracker import get_application_summary
 
 
 def show_menu():

@@ -5,7 +5,7 @@ from .models import FormAnswer
 from .profile_store import load_master_profile
 from .llm import complete_json, LLMError
 from .store import get_cached_answer, save_answer
-import config
+import rolesmith.config as config
 
 ANSWERS_SYSTEM_PROMPT = """You are answering job application form questions on behalf of the candidate.
 Rely strictly on the provided profile facts.

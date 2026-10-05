@@ -4,7 +4,7 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 
 def get_config_path() -> Path:
-    return Path.home() / ".job-apply-mcp" / "config.json"
+    return Path.home() / ".rolesmith" / "config.json"
 
 class LLMSettings(BaseModel):
     base_url: str = Field(default="http://localhost:8000/v1")

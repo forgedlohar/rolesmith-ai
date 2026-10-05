@@ -15,9 +15,9 @@ from playwright.async_api import Page, async_playwright
 
 from pathlib import Path
 
-from config import APP_DIR, AppConfig, get_user_agent, load_config
-from tools.session import load_cookies, save_cookies_from_context
-from tools.tracker import (
+from rolesmith.config import APP_DIR, AppConfig, get_user_agent, load_config
+from rolesmith.tools.session import load_cookies, save_cookies_from_context
+from rolesmith.tools.tracker import (
     count_recent_applications_for_company,
     is_already_applied,
     record_application,
@@ -1686,7 +1686,7 @@ async def apply_job(
     if not cfg.resume_exists:
         return {
             "success": False,
-            "error": "Resume file not found. Set 'resume_path' in ~/.job-apply-mcp/config.json",
+            "error": "Resume file not found. Set 'resume_path' in ~/.rolesmith/config.json",
         }
 
     async with async_playwright() as pw:

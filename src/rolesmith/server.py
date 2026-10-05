@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-job-apply-mcp  —  MCP server that automates job searching and applying
+rolesmith  —  MCP server that automates job searching and applying
 across LinkedIn, Naukri, Wellfound, Indeed India, and Hirist.
 
 Transport: stdio  (for Claude Desktop integration)
@@ -19,18 +19,13 @@ from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import TextContent, Tool
 
-# Ensure the project root is on sys.path so local imports work when run as a
-# standalone script (e.g.  python server.py  or via Claude Desktop).
-PROJECT_ROOT = Path(__file__).resolve().parent
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
 
-from config import load_config
-from tools.apply import apply_job, bulk_apply
-from tools.profile import PROFILE
-from tools.search import filter_jobs, search_jobs
-from tools.session import SUPPORTED_PLATFORMS, interactive_login
-from tools.tracker import get_application_summary
+from rolesmith.config import load_config
+from rolesmith.tools.apply import apply_job, bulk_apply
+from rolesmith.tools.profile import PROFILE
+from rolesmith.tools.search import filter_jobs, search_jobs
+from rolesmith.tools.session import SUPPORTED_PLATFORMS, interactive_login
+from rolesmith.tools.tracker import get_application_summary
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -40,12 +35,14 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     stream=sys.stderr,  # MCP stdio uses stdout for protocol — log to stderr
 )
-logger = logging.getLogger("job-apply-mcp")
+logger = logging.getLogger("rolesmith")
 
 # ---------------------------------------------------------------------------
 # Server instance
 # ---------------------------------------------------------------------------
-server = Server("job-apply-mcp")
+from rolesmith.branding import APP_NAME
+
+server = Server(APP_NAME)
 
 # ---------------------------------------------------------------------------
 # Tool catalogue
@@ -401,34 +398,34 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             return [TextContent(type="text", text=json.dumps(result, indent=2))]
 
         elif name == "autopilot_start":
-            from autopilot.pipeline import start_background
+            from rolesmith.pipeline.pipeline import start_background
             run_id = start_background("run_autopilot", auto_apply=arguments.get("auto_apply", False), dry_run=arguments.get("dry_run", True))
             return [TextContent(type="text", text=json.dumps({"run_id": run_id}, indent=2))]
 
         elif name == "autopilot_status":
-            from autopilot.pipeline import RUNS
+            from rolesmith.pipeline.pipeline import RUNS
             run_id = arguments["run_id"]
             if run_id in RUNS:
                 return [TextContent(type="text", text=json.dumps(RUNS[run_id], indent=2))]
             return [TextContent(type="text", text=json.dumps({"error": "Unknown run_id"}))]
 
         elif name == "list_shortlist":
-            from autopilot.store import get_jobs_by_status
+            from rolesmith.pipeline.store import get_jobs_by_status
             jobs = get_jobs_by_status("rated")
             return [TextContent(type="text", text=json.dumps(jobs, indent=2))]
 
         elif name == "tailor_resume_for_job":
-            from autopilot.pipeline import start_background
+            from rolesmith.pipeline.pipeline import start_background
             run_id = start_background("tailor_shortlist", force_url=arguments["job_url"])
             return [TextContent(type="text", text=json.dumps({"run_id": run_id}, indent=2))]
 
         elif name == "apply_shortlist":
-            from autopilot.pipeline import start_background
+            from rolesmith.pipeline.pipeline import start_background
             run_id = start_background("apply_shortlist", dry_run=arguments.get("dry_run", True))
             return [TextContent(type="text", text=json.dumps({"run_id": run_id}, indent=2))]
 
         elif name == "review_form_answers":
-            from autopilot.store import save_answer
+            from rolesmith.pipeline.store import save_answer
             save_answer(arguments["question"], None, arguments["answer"], "user", 1.0)
             return [TextContent(type="text", text=json.dumps({"status": "saved"}, indent=2))]
 
@@ -451,7 +448,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
 # ---------------------------------------------------------------------------
 
 async def main() -> None:
-    logger.info("Starting job-apply-mcp server (stdio transport)")
+    logger.info("Starting rolesmith server (stdio transport)")
     async with stdio_server() as (read_stream, write_stream):
         await server.run(
             read_stream,

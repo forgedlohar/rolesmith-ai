@@ -13,7 +13,7 @@ def _get_resume_dir(company: str) -> Path:
     comp_safe = "".join([c if c.isalnum() else "_" for c in company]).strip("_")
     # hash for uniqueness
     h = hashlib.md5(company.encode('utf-8')).hexdigest()[:8]
-    return Path.home() / ".job-apply-mcp" / "resumes" / f"{comp_safe}-{h}"
+    return Path.home() / ".rolesmith" / "resumes" / f"{comp_safe}-{h}"
 
 def _draw_resume(c: canvas.Canvas, draft: ResumeDraft, master: MasterProfile, font_size: float) -> int:
     width, height = letter

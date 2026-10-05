@@ -23,7 +23,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-from config import DB_PATH, ensure_dirs
+from rolesmith.config import DB_PATH, ensure_dirs
 
 _CREATE_TABLE = """
 CREATE TABLE IF NOT EXISTS applications (

@@ -1,7 +1,7 @@
 """
 Browser session / cookie management for each job platform.
 
-Cookies are stored as JSON files under ~/.job-apply-mcp/sessions/<platform>.json
+Cookies are stored as JSON files under ~/.rolesmith/sessions/<platform>.json
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ from typing import Any
 
 from playwright.async_api import BrowserContext, async_playwright
 
-from config import APP_DIR, SESSIONS_DIR, ensure_dirs, get_user_agent
+from rolesmith.config import APP_DIR, SESSIONS_DIR, ensure_dirs, get_user_agent
 
 logger = logging.getLogger(__name__)
 

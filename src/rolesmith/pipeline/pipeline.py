@@ -13,10 +13,10 @@ from .rating import rate_job
 from .tailor import tailor_resume
 from .render import render_resume
 from .llm import LLMError
-from tools.search import search_jobs
-from tools.tracker import is_already_applied
-from tools.apply import apply_job
-import config
+from rolesmith.tools.search import search_jobs
+from rolesmith.tools.tracker import is_already_applied
+from rolesmith.tools.apply import apply_job
+import rolesmith.config as config
 
 RUNS: Dict[str, Dict[str, Any]] = {}
 

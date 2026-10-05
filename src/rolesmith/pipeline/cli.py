@@ -13,7 +13,7 @@ class DummyResponse(BaseModel):
 def cmd_init(args):
     init_db()
     init_template()
-    print("Initialized DB and template at ~/.job-apply-mcp/master_profile.json")
+    print("Initialized DB and template at ~/.rolesmith/master_profile.json")
 
 def cmd_sync_profile(args):
     sync_into_config()

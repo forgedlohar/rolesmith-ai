@@ -5,7 +5,7 @@ from .models import MasterProfile
 from .settings import get_config_path
 
 def get_profile_path() -> Path:
-    return Path.home() / ".job-apply-mcp" / "master_profile.json"
+    return Path.home() / ".rolesmith" / "master_profile.json"
 
 def init_template():
     path = get_profile_path()

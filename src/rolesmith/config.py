@@ -1,7 +1,7 @@
 """
-Configuration loader for job-apply-mcp.
+Configuration loader for rolesmith.
 
-Reads and writes ~/.job-apply-mcp/config.json which stores:
+Reads and writes ~/.rolesmith/config.json which stores:
   - resume_path        : absolute path to the resume PDF
   - name               : candidate full name
   - email              : candidate email
@@ -19,7 +19,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-APP_DIR = Path.home() / ".job-apply-mcp"
+import os
+from .branding import CLI, ENV_PREFIX
+APP_DIR = Path(os.environ.get(f"{ENV_PREFIX}HOME", Path.home() / f".{CLI}"))
 CONFIG_PATH = APP_DIR / "config.json"
 SESSIONS_DIR = APP_DIR / "sessions"
 DB_PATH = APP_DIR / "applications.db"
@@ -57,8 +59,19 @@ class AppConfig:
         return bool(self.resume_path) and Path(self.resume_path).is_file()
 
 
+import shutil
+import logging
+logger = logging.getLogger("rolesmith")
+
 def ensure_dirs() -> None:
-    """Create the app directory and sessions sub-directory if missing."""
+    """Create the app directory and sessions sub-directory if missing. Migrate legacy dir if needed."""
+    legacy_dir = Path.home() / ".job-apply-mcp"
+    if not APP_DIR.exists() and legacy_dir.exists():
+        logger.info(f"Migrating legacy data from {legacy_dir} to {APP_DIR}")
+        shutil.move(str(legacy_dir), str(APP_DIR))
+        legacy_dir.mkdir(parents=True, exist_ok=True)
+        (legacy_dir / "migrated_to_rolesmith.txt").write_text("Data migrated to ~/.rolesmith\n")
+    
     APP_DIR.mkdir(parents=True, exist_ok=True)
     SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
 

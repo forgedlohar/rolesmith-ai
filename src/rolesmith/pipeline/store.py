@@ -8,7 +8,7 @@ import json
 import os
 
 def get_db_path() -> Path:
-    return Path.home() / ".job-apply-mcp" / "applications.db"
+    return Path.home() / ".rolesmith" / "applications.db"
 
 def normalize_url(url: str) -> str:
     parsed = urlparse(url)

@@ -13,7 +13,7 @@ from difflib import SequenceMatcher
 class CandidateProfile:
     """
     Default candidate profile — DevOps / AI-ML Engineer template.
-    Users override these values via ~/.job-apply-mcp/config.json
+    Users override these values via ~/.rolesmith/config.json
     """
     title: str = "DevOps and AI/ML Engineer"
     experience_years: int = 4
@@ -138,7 +138,7 @@ def _load_profile() -> CandidateProfile:
         # The spec says `config.json -> candidate_profile`
         import json
         from pathlib import Path
-        config_path = Path.home() / ".job-apply-mcp" / "config.json"
+        config_path = Path.home() / ".rolesmith" / "config.json"
         if config_path.exists():
             raw_config = json.loads(config_path.read_text())
             cand_profile = raw_config.get("candidate_profile", {})

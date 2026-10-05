@@ -1,9 +1,9 @@
 import pytest
 from pydantic import BaseModel
-from autopilot.llm import extract_json
-from autopilot.rating import rate_job
-from autopilot.tailor import tailor_resume
-from autopilot.models import JobRating
+from rolesmith.pipeline.llm import extract_json
+from rolesmith.pipeline.rating import rate_job
+from rolesmith.pipeline.tailor import tailor_resume
+from rolesmith.pipeline.models import JobRating
 
 class DummyModel(BaseModel):
     name: str
@@ -36,7 +36,7 @@ def test_rating_empty_desc(mocker):
         missing_skills=[],
         red_flags=[]
     )
-    mocker.patch('autopilot.rating.complete_json', return_value=mock_resp)
+    mocker.patch('rolesmith.pipeline.rating.complete_json', return_value=mock_resp)
     
     rating = rate_job("Software Engineer", "Acme Corp", "")
     assert rating.score == 0
@@ -45,7 +45,7 @@ def test_rating_empty_desc(mocker):
 
 def test_tailoring_drops_experience(mocker):
     # Setup mock master profile
-    from autopilot.models import MasterProfile, Experience
+    from rolesmith.pipeline.models import MasterProfile, Experience
     mock_master = MasterProfile(
         name="Test User",
         email="test@test.com",
@@ -65,10 +65,10 @@ def test_tailoring_drops_experience(mocker):
             )
         ]
     )
-    mocker.patch('autopilot.tailor.load_master_profile', return_value=mock_master)
+    mocker.patch('rolesmith.pipeline.tailor.load_master_profile', return_value=mock_master)
     
     # Setup mock LLM completion
-    from autopilot.models import ResumeDraft, Experience
+    from rolesmith.pipeline.models import ResumeDraft, Experience
     mock_tailor = ResumeDraft(
         headline="DevOps Engineer",
         summary="Tailored summary",
@@ -83,9 +83,9 @@ def test_tailoring_drops_experience(mocker):
             )
         ]
     )
-    mocker.patch('autopilot.tailor.complete_json', return_value=mock_tailor)
+    mocker.patch('rolesmith.pipeline.tailor.complete_json', return_value=mock_tailor)
     
-    from autopilot.models import JobRating
+    from rolesmith.pipeline.models import JobRating
     rating = JobRating(
         score=80,
         verdict="apply",

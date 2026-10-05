@@ -20,9 +20,9 @@ from datetime import datetime, timezone
 
 from pathlib import Path
 
-from config import APP_DIR, get_user_agent, load_config
-from tools.profile import PROFILE, compute_match_score, should_exclude, title_is_relevant
-from tools.session import load_cookies
+from rolesmith.config import APP_DIR, get_user_agent, load_config
+from rolesmith.tools.profile import PROFILE, compute_match_score, should_exclude, title_is_relevant
+from rolesmith.tools.session import load_cookies
 
 # Persistent browser profiles for platforms that need full auth (LinkedIn)
 BROWSER_PROFILES_DIR = APP_DIR / "browser-profiles"
