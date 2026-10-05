@@ -2,22 +2,24 @@
 apply_job   — automate a single application via Playwright.
 bulk_apply  — iterate over a job list with delays, skip duplicates.
 """
-
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 import logging
 import random
 import re
+import re as _re
+from pathlib import Path
 from typing import Any
 
 from playwright.async_api import Page, async_playwright
 
-from pathlib import Path
-
-from rolesmith.config import APP_DIR, AppConfig, get_user_agent, load_config
-from rolesmith.tools.session import load_cookies, save_cookies_from_context
-from rolesmith.tools.tracker import (
+from rolesmith_ai.config import APP_DIR, AppConfig, get_user_agent, load_config
+from rolesmith_ai.pipeline.llm_answers import get_answer
+from rolesmith_ai.pipeline.settings import settings
+from rolesmith_ai.tools.session import load_cookies, save_cookies_from_context
+from rolesmith_ai.tools.tracker import (
     count_recent_applications_for_company,
     is_already_applied,
     record_application,
@@ -30,6 +32,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Smart form auto-filler
 # ---------------------------------------------------------------------------
+
 
 async def _autofill_fields(page: Page, cfg: AppConfig) -> int:
     """
@@ -73,7 +76,8 @@ async def _autofill_fields(page: Page, cfg: AppConfig) -> int:
     pref_locs = af.get("preferred_locations", [])
 
     # ---- Use JavaScript to find and fill all visible fields ----
-    filled = await page.evaluate('''(config) => {
+    filled = await page.evaluate(
+        """(config) => {
         const answers = config.answers;
         const prefLocs = config.prefLocs;
         let filled = 0;
@@ -204,7 +208,9 @@ async def _autofill_fields(page: Page, cfg: AppConfig) -> int:
         }
 
         return filled;
-    }''', {"answers": answers, "prefLocs": pref_locs})
+    }""",
+        {"answers": answers, "prefLocs": pref_locs},
+    )
 
     if filled:
         logger.info("Autofill: filled %d fields", filled)
@@ -215,6 +221,7 @@ async def _autofill_fields(page: Page, cfg: AppConfig) -> int:
 # Resume upload helper
 # ---------------------------------------------------------------------------
 
+
 async def _upload_resume(page: Page, resume_path: str) -> bool:
     """
     Find any file-upload input on the page and upload the resume.
@@ -222,10 +229,12 @@ async def _upload_resume(page: Page, resume_path: str) -> bool:
     Returns True if a file was uploaded.
     """
     # Strategy 1: Make ALL file inputs fully visible and interactable
-    count = await page.evaluate('''() => {
+    count = await page.evaluate(
+        """() => {
         const inputs = document.querySelectorAll('input[type="file"]');
         for (const inp of inputs) {
-            inp.style.cssText = "display:block !important; visibility:visible !important; opacity:1 !important; width:100px !important; height:30px !important; position:relative !important; z-index:99999 !important;";
+            inp.style.cssText = "display:block !important; visibility:visible !important; opacity:1 !important; width:100px !important; " +
+                                "height:30px !important; position:relative !important; z-index:99999 !important;";
             // Also make parents visible
             let parent = inp.parentElement;
             for (let i = 0; i < 5 && parent; i++) {
@@ -235,7 +244,8 @@ async def _upload_resume(page: Page, resume_path: str) -> bool:
             }
         }
         return inputs.length;
-    }''')
+    }"""
+    )
 
     if count > 0:
         # Try page.set_input_files with selector (more reliable than element handle)
@@ -260,12 +270,18 @@ async def _upload_resume(page: Page, resume_path: str) -> bool:
 
     # Strategy 2: Click upload button/label and intercept file chooser
     upload_selectors = [
-        "button:has-text('Upload')", "button:has-text('Attach')",
-        "a:has-text('Upload Resume')", "a:has-text('Attach Resume')",
-        "label:has-text('Upload')", "label:has-text('Attach')",
-        "span:has-text('Upload Resume')", "span:has-text('upload resume')",
+        "button:has-text('Upload')",
+        "button:has-text('Attach')",
+        "a:has-text('Upload Resume')",
+        "a:has-text('Attach Resume')",
+        "label:has-text('Upload')",
+        "label:has-text('Attach')",
+        "span:has-text('Upload Resume')",
+        "span:has-text('upload resume')",
         "div:has-text('Upload Resume')",
-        "label[for*='file']", "label[for*='resume']", "label[for*='upload']",
+        "label[for*='file']",
+        "label[for*='resume']",
+        "label[for*='upload']",
     ]
     for sel in upload_selectors:
         btn = await page.query_selector(sel)
@@ -286,7 +302,8 @@ async def _upload_resume(page: Page, resume_path: str) -> bool:
 
     # Strategy 3: Click ANY element that mentions upload/resume and intercept
     try:
-        upload_el = await page.evaluate('''() => {
+        upload_el = await page.evaluate(
+            """() => {
             const els = document.querySelectorAll('*');
             for (const el of els) {
                 if (el.offsetParent === null) continue;
@@ -296,7 +313,8 @@ async def _upload_resume(page: Page, resume_path: str) -> bool:
                 }
             }
             return false;
-        }''')
+        }"""
+        )
         if upload_el:
             async with page.expect_file_chooser(timeout=5000) as fc_info:
                 await page.click("text=/upload|attach/i")
@@ -315,6 +333,7 @@ async def _upload_resume(page: Page, resume_path: str) -> bool:
 # CAPTCHA detection helper
 # ---------------------------------------------------------------------------
 
+
 async def _detect_captcha(page: Page) -> bool:
     """Check VISIBLE page text for CAPTCHA indicators (avoids false positives from scripts)."""
     try:
@@ -328,6 +347,7 @@ async def _detect_captcha(page: Page) -> bool:
 # ---------------------------------------------------------------------------
 # Per-platform apply helpers
 # ---------------------------------------------------------------------------
+
 
 def _experience_answer(q: str, af: dict, exp_map: dict) -> str:
     """
@@ -356,9 +376,23 @@ def _experience_answer(q: str, af: dict, exp_map: dict) -> str:
     subject = re.sub(r"\b(years?|yrs?|experience|exp|do|you|have|the|a|an)\b", " ", subject)
     subject = re.sub(r"\s+", " ", subject).strip(" ?.,")
     generic = {
-        "", "this role", "role", "similar role", "field", "this field",
-        "industry", "this industry", "domain", "this domain", "it",
-        "software", "technology", "tech", "same", "this", "total",
+        "",
+        "this role",
+        "role",
+        "similar role",
+        "field",
+        "this field",
+        "industry",
+        "this industry",
+        "domain",
+        "this domain",
+        "it",
+        "software",
+        "technology",
+        "tech",
+        "same",
+        "this",
+        "total",
     }
     if subject in generic:
         return total
@@ -366,7 +400,10 @@ def _experience_answer(q: str, af: dict, exp_map: dict) -> str:
 
 
 def _classify_linkedin_text_answer(
-    label: str, af: dict, exp_map: dict, cfg: AppConfig,
+    label: str,
+    af: dict,
+    exp_map: dict,
+    cfg: AppConfig,
 ) -> str:
     """
     Decide what to type into a LinkedIn Easy Apply text/number question,
@@ -407,7 +444,10 @@ def _classify_linkedin_text_answer(
         return af.get("primary_cloud", "GCP")
     if re.search(r"contract|contractual|c2h|contract.based|contract to hire", q):
         return af.get("contract_based", "Yes")
-    if re.search(r"how many (organi[sz]ations|companies|employers)|number of (organi[sz]ations|companies|employers)", q):
+    if re.search(
+        r"how many (organi[sz]ations|companies|employers)|number of (organi[sz]ations|companies|employers)",
+        q,
+    ):
         return str(af.get("total_organizations", "2"))
     if re.search(r"certificat|certified", q):
         certs = [c.lower() for c in af.get("certifications", [])]
@@ -433,18 +473,21 @@ def _classify_linkedin_text_answer(
     # Never leave a question unanswered — default to Yes for anything else
     # (most unclassified Easy Apply screening questions are yes/no gates).
     try:
-        from rolesmith.pipeline.llm_answers import get_answer
         ans = get_answer(label)
         if ans is not None:
             return str(ans)
     except Exception:
         pass
-        
+
     return "Yes"
 
 
 def _classify_linkedin_select(
-    label: str, options: list[str], af: dict, exp_map: dict, cfg: AppConfig,
+    label: str,
+    options: list[str],
+    af: dict,
+    exp_map: dict,
+    cfg: AppConfig,
 ) -> str | None:
     """
     Pick an option for a LinkedIn <select> screening question.
@@ -509,13 +552,12 @@ def _classify_linkedin_select(
         return min(ranges, key=lambda r: abs((r[0] + min(r[1], r[0] + 20)) / 2 - target))[2]
 
     try:
-        from rolesmith.pipeline.llm_answers import get_answer
         ans = get_answer(label, options=real)
         if ans is not None:
             return str(ans)
     except Exception:
         pass
-        
+
     return real[0]
 
 
@@ -544,7 +586,8 @@ async def _apply_linkedin(page: Page, cfg: AppConfig, cover_note: str) -> dict[s
         # hashes, so the old 'jobs-apply' check could never match.
         clicked = None
         for _ in range(12):
-            clicked = await page.evaluate('''() => {
+            clicked = await page.evaluate(
+                """() => {
                 const els = document.querySelectorAll('button, a, [role="button"]');
                 for (const el of els) {
                     if (el.offsetParent === null) continue;
@@ -557,13 +600,17 @@ async def _apply_linkedin(page: Page, cfg: AppConfig, cover_note: str) -> dict[s
                     }
                 }
                 return null;
-            }''')
+            }"""
+            )
             if clicked:
                 break
             await page.wait_for_timeout(500)
 
         if not clicked:
-            return {"success": False, "error": "No Easy Apply button — external apply, skipped"}
+            return {
+                "success": False,
+                "error": "No Easy Apply button — external apply, skipped",
+            }
 
         # When the control is an <a>, a synthetic .click() is a no-op —
         # navigate to its href (LinkedIn's server-driven apply flow URL)
@@ -585,11 +632,13 @@ async def _apply_linkedin(page: Page, cfg: AppConfig, cover_note: str) -> dict[s
         modal = page.locator('dialog, [role="dialog"]').first
         modal_open = False
         for _ in range(20):
-            modal_open = await page.evaluate("""() => {
+            modal_open = await page.evaluate(
+                """() => {
                 const d = document.querySelector('dialog');
                 if (d) return !!d.open;
                 return !!document.querySelector('[role="dialog"]');
-            }""")
+            }"""
+            )
             if modal_open:
                 break
             await page.wait_for_timeout(500)
@@ -623,7 +672,11 @@ async def _apply_linkedin(page: Page, cfg: AppConfig, cover_note: str) -> dict[s
 
             text = (await modal.inner_text()).lower()
             if "application sent" in text or "application submitted" in text or "your application was sent" in text:
-                return {"success": True, "confirmation": f"LinkedIn Easy Apply submitted (answered {len(qa_log)} questions)", "qa_log": qa_log}
+                return {
+                    "success": True,
+                    "confirmation": f"LinkedIn Easy Apply submitted (answered {len(qa_log)} questions)",
+                    "qa_log": qa_log,
+                }
 
             # --- Resume page: make sure OUR configured resume is selected ---
             resume_name = Path(cfg.resume_path).name if cfg.resume_exists else ""
@@ -659,7 +712,8 @@ async def _apply_linkedin(page: Page, cfg: AppConfig, cover_note: str) -> dict[s
             # attribute-selector like input[type="text"] — some fields
             # (e.g. a "Location (city)" autocomplete) omit the type
             # attribute entirely and were silently invisible to this query.
-            fields = await page.evaluate("""() => {
+            fields = await page.evaluate(
+                """() => {
                 const modal = (document.querySelector('dialog') || document.querySelector('[role="dialog"]'));
                 if (!modal) return [];
                 const skip = new Set(['radio', 'checkbox', 'file', 'hidden', 'submit', 'button', 'image', 'range', 'color', 'date', 'time', 'datetime-local']);
@@ -676,7 +730,8 @@ async def _apply_linkedin(page: Page, cfg: AppConfig, cover_note: str) -> dict[s
                     out.push({id: el.id, label, value: el.value});
                 });
                 return out;
-            }""")
+            }"""
+            )
             for f in fields:
                 if f["value"] or not f["label"]:
                     continue
@@ -697,7 +752,8 @@ async def _apply_linkedin(page: Page, cfg: AppConfig, cover_note: str) -> dict[s
             # and click within a single evaluate call (like the Naukri
             # radio logic) so the click lands on the real interactive
             # element rather than a possibly non-interactive native input.
-            answered_radios = await page.evaluate("""(config) => {
+            answered_radios = await page.evaluate(
+                """(config) => {
                 const af = config.af;
                 const expMap = config.expMap;
                 const modal = (document.querySelector('dialog') || document.querySelector('[role="dialog"]'));
@@ -820,7 +876,9 @@ async def _apply_linkedin(page: Page, cfg: AppConfig, cover_note: str) -> dict[s
                     }
                 });
                 return answered;
-            }""", {"af": af, "expMap": exp_map})
+            }""",
+                {"af": af, "expMap": exp_map},
+            )
             for a in answered_radios:
                 qa_log.append({"question": a["question"], "answer": a["answer"], "type": "radio"})
 
@@ -829,7 +887,8 @@ async def _apply_linkedin(page: Page, cfg: AppConfig, cover_note: str) -> dict[s
             # questions as native selects left on a "Select an option"
             # placeholder. They're required, so leaving them unset silently
             # blocks the Review/Submit step forever.
-            selects = await page.evaluate("""() => {
+            selects = await page.evaluate(
+                """() => {
                 const modal = (document.querySelector('dialog') || document.querySelector('[role="dialog"]'));
                 if (!modal) return [];
                 return Array.from(modal.querySelectorAll('select')).filter(s => s.offsetParent !== null).map(s => {
@@ -848,8 +907,15 @@ async def _apply_linkedin(page: Page, cfg: AppConfig, cover_note: str) -> dict[s
                         options: Array.from(s.options).map(o => o.text),
                     };
                 });
-            }""")
-            placeholders = {"", "-", "select an option", "please select", "choose an option"}
+            }"""
+            )
+            placeholders = {
+                "",
+                "-",
+                "select an option",
+                "please select",
+                "choose an option",
+            }
             for s in selects:
                 if (s.get("value") or "").strip().lower() not in placeholders:
                     continue  # already answered (e.g. prefilled email)
@@ -860,7 +926,13 @@ async def _apply_linkedin(page: Page, cfg: AppConfig, cover_note: str) -> dict[s
                     continue
                 try:
                     await modal.locator(f'[id="{s["id"]}"]').select_option(label=choice)
-                    qa_log.append({"question": s["label"][:120], "answer": choice, "type": "select"})
+                    qa_log.append(
+                        {
+                            "question": s["label"][:120],
+                            "answer": choice,
+                            "type": "select",
+                        }
+                    )
                 except Exception as exc:
                     logger.warning("LinkedIn: failed to set select %r: %s", s["label"][:60], exc)
 
@@ -872,7 +944,8 @@ async def _apply_linkedin(page: Page, cfg: AppConfig, cover_note: str) -> dict[s
             # ("Continue to next step") rather than the visible text
             # ("Next"), so exact-matching the visible label found nothing.
             # Submit is checked first so we never click past it.
-            advanced = await page.evaluate("""() => {
+            advanced = await page.evaluate(
+                """() => {
                 const modal = (document.querySelector('dialog') || document.querySelector('[role="dialog"]'));
                 if (!modal) return null;
                 const els = Array.from(modal.querySelectorAll('button, [role="button"]'))
@@ -889,11 +962,16 @@ async def _apply_linkedin(page: Page, cfg: AppConfig, cover_note: str) -> dict[s
                 const next = els.find(e => match(e, /^next$/, /^continue to next step/));
                 if (next) { next.click(); return 'next'; }
                 return null;
-            }""")
+            }"""
+            )
 
             if advanced == "submit":
                 await page.wait_for_timeout(3000)
-                return {"success": True, "confirmation": f"LinkedIn Easy Apply submitted (answered {len(qa_log)} questions)", "qa_log": qa_log}
+                return {
+                    "success": True,
+                    "confirmation": f"LinkedIn Easy Apply submitted (answered {len(qa_log)} questions)",
+                    "qa_log": qa_log,
+                }
             elif advanced is None:
                 break
             await page.wait_for_timeout(2000)
@@ -913,7 +991,6 @@ async def _apply_linkedin(page: Page, cfg: AppConfig, cover_note: str) -> dict[s
 
 async def _naukri_login(page: Page, cfg: AppConfig) -> bool:
     """Log in to Naukri inline if not already authenticated."""
-    from rolesmith.pipeline.settings import settings
     email = settings.credentials.naukri_email
     password = settings.credentials.naukri_password
     if not email or not password:
@@ -928,18 +1005,12 @@ async def _naukri_login(page: Page, cfg: AppConfig) -> bool:
     await page.wait_for_timeout(2000)
 
     # Fill login form
-    email_input = await page.query_selector(
-        "input[type='email'], input[placeholder*='Email'], input[id*='usernameField']"
-    )
-    pass_input = await page.query_selector(
-        "input[type='password'], input[placeholder*='Password'], input[id*='passwordField']"
-    )
+    email_input = await page.query_selector("input[type='email'], input[placeholder*='Email'], input[id*='usernameField']")
+    pass_input = await page.query_selector("input[type='password'], input[placeholder*='Password'], input[id*='passwordField']")
     if email_input and pass_input:
         await email_input.fill(email)
         await pass_input.fill(password)
-        submit = await page.query_selector(
-            "button[type='submit'], button[class*='loginButton'], button:has-text('Login')"
-        )
+        submit = await page.query_selector("button[type='submit'], button[class*='loginButton'], button:has-text('Login')")
         if submit:
             await submit.click()
             await page.wait_for_timeout(4000)
@@ -955,21 +1026,30 @@ async def _apply_naukri(page: Page, cfg: AppConfig, cover_note: str) -> dict[str
         if login_btn and await login_btn.is_visible():
             logged_in = await _naukri_login(page, cfg)
             if not logged_in:
-                return {"success": False, "error": "Naukri login failed — check credentials in .env"}
+                return {
+                    "success": False,
+                    "error": "Naukri login failed — check credentials in .env",
+                }
             # Reload the job page after login
             await page.reload(wait_until="domcontentloaded")
             await page.wait_for_timeout(3000)
 
         # Check if this is an external-apply job — skip without clicking
-        is_external = await page.evaluate('''() => {
+        is_external = await page.evaluate(
+            """() => {
             const extBtn = document.querySelector('button#company-site-button');
             return !!(extBtn && extBtn.offsetParent !== null);
-        }''')
+        }"""
+        )
         if is_external:
-            return {"success": False, "error": "External apply (company site) — skipped"}
+            return {
+                "success": False,
+                "error": "External apply (company site) — skipped",
+            }
 
         # Click the direct Apply button only
-        clicked = await page.evaluate('''() => {
+        clicked = await page.evaluate(
+            """() => {
             const btn = document.querySelector('button#apply-button, button.apply-button');
             if (btn) {
                 btn.scrollIntoView();
@@ -977,7 +1057,8 @@ async def _apply_naukri(page: Page, cfg: AppConfig, cover_note: str) -> dict[str
                 return true;
             }
             return false;
-        }''')
+        }"""
+        )
 
         if not clicked:
             return {"success": False, "error": "No direct apply button found"}
@@ -1008,18 +1089,32 @@ async def _apply_naukri(page: Page, cfg: AppConfig, cover_note: str) -> dict[str
             # Check if we're done — multiple success indicators
             text = (await page.inner_text("body")).lower()
             if "already applied" in text:
-                return {"success": True, "confirmation": "Already applied to this job on Naukri", "qa_log": qa_log}
-            if any(kw in text for kw in (
-                "application submitted", "applied successfully",
-                "applied to", "thank you for applying",
-                "we have received your application",
-                "your application has been sent",
-                "successfully applied",
-            )):
-                return {"success": True, "confirmation": f"Naukri application submitted (answered {answered} questions)", "qa_log": qa_log}
+                return {
+                    "success": True,
+                    "confirmation": "Already applied to this job on Naukri",
+                    "qa_log": qa_log,
+                }
+            if any(
+                kw in text
+                for kw in (
+                    "application submitted",
+                    "applied successfully",
+                    "applied to",
+                    "thank you for applying",
+                    "we have received your application",
+                    "your application has been sent",
+                    "successfully applied",
+                )
+            ):
+                return {
+                    "success": True,
+                    "confirmation": f"Naukri application submitted (answered {answered} questions)",
+                    "qa_log": qa_log,
+                }
 
             # Check if chatbot is closed or no more interactive elements
-            chatbot_open = await page.evaluate("""() => {
+            chatbot_open = await page.evaluate(
+                """() => {
                 const wrapper = document.querySelector('div.chatbot_DrawerContentWrapper');
                 if (!wrapper) return false;
                 if (wrapper.offsetParent === null) return false;
@@ -1029,30 +1124,40 @@ async def _apply_naukri(page: Page, cfg: AppConfig, cover_note: str) -> dict[str
                 const textInput = wrapper.querySelector('input[type="text"], input[type="number"], textarea');
                 const file = wrapper.querySelector('input[type="file"]');
                 return !!(ce || radio || textInput || file);
-            }""")
+            }"""
+            )
             if step > 0 and not chatbot_open:
                 # Chatbot closed or no more questions — successful application
-                return {"success": True, "confirmation": f"Naukri application submitted (answered {answered} questions)", "qa_log": qa_log}
+                return {
+                    "success": True,
+                    "confirmation": f"Naukri application submitted (answered {answered} questions)",
+                    "qa_log": qa_log,
+                }
 
             # --- Read the LAST chatbot question only ---
-            question = await page.evaluate("""() => {
+            question = await page.evaluate(
+                """() => {
                 // Get only the last bot message (the current question)
                 const botItems = document.querySelectorAll('li.botItem');
                 if (botItems.length === 0) return '';
                 const lastBot = botItems[botItems.length - 1];
                 const span = lastBot.querySelector('span');
                 return span ? span.textContent.trim().toLowerCase() : lastBot.textContent.trim().toLowerCase();
-            }""")
+            }"""
+            )
             logger.info("Naukri chatbot step %d Q: %s", step + 1, question[:60])
 
             # === 1) RADIO BUTTONS (ssrc__radio) ===
-            has_radios = await page.evaluate("""() => {
+            has_radios = await page.evaluate(
+                """() => {
                 return document.querySelectorAll('input[type="radio"]').length > 0 &&
                     Array.from(document.querySelectorAll('input[type="radio"]')).some(r => r.offsetParent !== null);
-            }""")
+            }"""
+            )
 
             if has_radios:
-                chosen = await page.evaluate("""(config) => {
+                chosen = await page.evaluate(
+                    """(config) => {
                     const q = config.question;
                     const af = config.af;
                     const expMap = config.expMap;
@@ -1215,20 +1320,29 @@ async def _apply_naukri(page: Page, cfg: AppConfig, cover_note: str) -> dict[str
                     }
                     if (chosen) { chosen.el.click(); return {ok: true, label: chosen.label}; }
                     return {ok: false, label: null};
-                }""", {"question": question, "af": af, "expMap": exp_map})
+                }""",
+                    {"question": question, "af": af, "expMap": exp_map},
+                )
                 if chosen and chosen.get("ok"):
                     answered += 1
-                    qa_log.append({"question": question[:120], "answer": chosen.get("label", ""), "type": "radio"})
+                    qa_log.append(
+                        {
+                            "question": question[:120],
+                            "answer": chosen.get("label", ""),
+                            "type": "radio",
+                        }
+                    )
 
             # === 2) CONTENTEDITABLE DIV (Naukri chatbot text input) ===
-            has_contenteditable = await page.evaluate("""() => {
+            has_contenteditable = await page.evaluate(
+                """() => {
                 const ce = document.querySelector('div[contenteditable="true"].textArea, div[contenteditable="true"][data-placeholder]');
                 return !!(ce && ce.offsetParent !== null);
-            }""")
+            }"""
+            )
 
             if has_contenteditable:
                 value = ""
-                import re as _re
                 # ORDER MATTERS: Check specific data fields BEFORE generic yes/no patterns.
                 # CTC questions
                 if "current" in question and "ctc" in question:
@@ -1257,13 +1371,22 @@ async def _apply_naukri(page: Page, cfg: AppConfig, cover_note: str) -> dict[str
                     else:
                         value = notice
                 # Last Working Day (LWD) questions
-                elif _re.search(r"last working day|lwd|last day|when.*leave|when.*available|when.*join", question):
+                elif _re.search(
+                    r"last working day|lwd|last day|when.*leave|when.*available|when.*join",
+                    question,
+                ):
                     value = af.get("last_working_day", "Currently Working")
                 # Primary cloud / preferred cloud questions
-                elif _re.search(r"primary cloud|preferred cloud|main cloud|cloud platform|which cloud", question):
+                elif _re.search(
+                    r"primary cloud|preferred cloud|main cloud|cloud platform|which cloud",
+                    question,
+                ):
                     value = af.get("primary_cloud", "GCP")
                 # Contract / contract-based hiring questions
-                elif _re.search(r"contract|contractual|c2h|contract.based|contract to hire|contract role|short term", question):
+                elif _re.search(
+                    r"contract|contractual|c2h|contract.based|contract to hire|contract role|short term",
+                    question,
+                ):
                     value = af.get("contract_based", "Yes")
                 elif "name" in question and "company" not in question:
                     value = cfg.name
@@ -1282,15 +1405,24 @@ async def _apply_naukri(page: Page, cfg: AppConfig, cover_note: str) -> dict[str
                         value = cfg.location
                 elif "age" in question:
                     value = "25"
-                elif _re.search(r"current status|employment status|serving notice|resigned", question):
+                elif _re.search(
+                    r"current status|employment status|serving notice|resigned",
+                    question,
+                ):
                     value = af.get("current_status", "").split(",")[0].strip() or "Employed"
-                elif _re.search(r"how many (organi[sz]ations|companies|employers)|number of (organi[sz]ations|companies|employers)|orgs (worked|till date)", question):
+                elif _re.search(
+                    r"how many (organi[sz]ations|companies|employers)|number of (organi[sz]ations|companies|employers)|orgs (worked|till date)",
+                    question,
+                ):
                     value = af.get("total_organizations", "2")
                 elif _re.search(r"certificat|certified", question):
                     certs = [c.lower() for c in af.get("certifications", [])]
                     value = "Yes" if any(c and c in question for c in certs) else "No"
                 # Yes/No text questions (AFTER specific data fields) — narrower patterns
-                elif _re.search(r"comfortable|willing|ready|agree to|face to face|f2f|onsite|in.person|office|relocat|can you join|ok with|okay with", question):
+                elif _re.search(
+                    r"comfortable|willing|ready|agree to|face to face|f2f|onsite|in.person|office|relocat|can you join|ok with|okay with",
+                    question,
+                ):
                     value = "Yes"
                 else:
                     # Never leave a question unanswered — most unclassified
@@ -1313,7 +1445,13 @@ async def _apply_naukri(page: Page, cfg: AppConfig, cover_note: str) -> dict[str
                         await page.keyboard.type(str(value), delay=50)
                         await page.wait_for_timeout(500)
                         answered += 1
-                        qa_log.append({"question": question[:120], "answer": str(value), "type": "text"})
+                        qa_log.append(
+                            {
+                                "question": question[:120],
+                                "answer": str(value),
+                                "type": "text",
+                            }
+                        )
                         logger.info("Chatbot: typed '%s' for Q: %s", value, question[:40])
 
             # === 3) STANDARD TEXT INPUTS (fallback for non-chatbot forms) ===
@@ -1332,7 +1470,8 @@ async def _apply_naukri(page: Page, cfg: AppConfig, cover_note: str) -> dict[str
             # Naukri chatbot Save is: <div class="send"><div class="sendMsg">Save</div></div>
             # The parent div has "disabled" class until input has text.
             # First remove disabled class, then click.
-            save_clicked = await page.evaluate("""() => {
+            save_clicked = await page.evaluate(
+                """() => {
                 // Remove disabled from send container
                 const sendContainer = document.querySelector('div.send, div[class*="sendMsgbtn_container"] div.send');
                 if (sendContainer) {
@@ -1360,18 +1499,31 @@ async def _apply_naukri(page: Page, cfg: AppConfig, cover_note: str) -> dict[str
                     }
                 }
                 return '';
-            }""")
+            }"""
+            )
             if save_clicked:
                 logger.info("Naukri: clicked %s", save_clicked)
 
         # Final check
         text = (await page.inner_text("body")).lower()
         if "already applied" in text:
-            return {"success": True, "confirmation": "Already applied to this job on Naukri", "qa_log": qa_log}
+            return {
+                "success": True,
+                "confirmation": "Already applied to this job on Naukri",
+                "qa_log": qa_log,
+            }
         if "application submitted" in text or "applied successfully" in text:
-            return {"success": True, "confirmation": f"Naukri applied (answered {answered} questions)", "qa_log": qa_log}
+            return {
+                "success": True,
+                "confirmation": f"Naukri applied (answered {answered} questions)",
+                "qa_log": qa_log,
+            }
 
-        return {"success": True, "confirmation": f"Naukri apply completed (answered {answered} questions)", "qa_log": qa_log}
+        return {
+            "success": True,
+            "confirmation": f"Naukri apply completed (answered {answered} questions)",
+            "qa_log": qa_log,
+        }
     except Exception as exc:
         return {"success": False, "error": str(exc)}
 
@@ -1379,9 +1531,7 @@ async def _apply_naukri(page: Page, cfg: AppConfig, cover_note: str) -> dict[str
 async def _apply_wellfound(page: Page, cfg: AppConfig, cover_note: str) -> dict[str, Any]:
     """Apply on Wellfound."""
     try:
-        apply_btn = await page.query_selector(
-            "button[data-test='apply-button'], button[class*='apply'], a[class*='apply']"
-        )
+        apply_btn = await page.query_selector("button[data-test='apply-button'], button[class*='apply'], a[class*='apply']")
         if not apply_btn:
             return {"success": False, "error": "Apply button not found on Wellfound"}
 
@@ -1390,9 +1540,7 @@ async def _apply_wellfound(page: Page, cfg: AppConfig, cover_note: str) -> dict[
 
         # Cover note
         if cover_note:
-            textarea = await page.query_selector(
-                "textarea[name*='cover'], textarea[placeholder*='cover'], textarea[data-test='cover-letter']"
-            )
+            textarea = await page.query_selector("textarea[name*='cover'], textarea[placeholder*='cover'], textarea[data-test='cover-letter']")
             if textarea:
                 await textarea.fill(cover_note)
 
@@ -1403,9 +1551,7 @@ async def _apply_wellfound(page: Page, cfg: AppConfig, cover_note: str) -> dict[
             await page.wait_for_timeout(1000)
 
         # Submit
-        submit_btn = await page.query_selector(
-            "button[type='submit'], button[data-test='submit-application']"
-        )
+        submit_btn = await page.query_selector("button[type='submit'], button[data-test='submit-application']")
         if submit_btn:
             await submit_btn.click()
             await page.wait_for_timeout(2000)
@@ -1418,9 +1564,7 @@ async def _apply_wellfound(page: Page, cfg: AppConfig, cover_note: str) -> dict[
 async def _apply_indeed(page: Page, cfg: AppConfig, cover_note: str) -> dict[str, Any]:
     """Apply on Indeed."""
     try:
-        apply_btn = await page.query_selector(
-            "button#indeedApplyButton, button[class*='apply'], a[class*='apply']"
-        )
+        apply_btn = await page.query_selector("button#indeedApplyButton, button[class*='apply'], a[class*='apply']")
         if not apply_btn:
             return {"success": False, "error": "Apply button not found on Indeed"}
 
@@ -1456,15 +1600,16 @@ async def _apply_indeed(page: Page, cfg: AppConfig, cover_note: str) -> dict[str
 
         # Continue / Submit
         for _ in range(5):
-            cont_btn = await page.query_selector(
-                "button[id*='continue'], button[class*='continue'], button[type='submit']"
-            )
+            cont_btn = await page.query_selector("button[id*='continue'], button[class*='continue'], button[type='submit']")
             if cont_btn:
                 label = (await cont_btn.inner_text()).lower()
                 await cont_btn.click()
                 await page.wait_for_timeout(1500)
                 if "submit" in label:
-                    return {"success": True, "confirmation": "Indeed application submitted"}
+                    return {
+                        "success": True,
+                        "confirmation": "Indeed application submitted",
+                    }
             else:
                 break
 
@@ -1476,9 +1621,7 @@ async def _apply_indeed(page: Page, cfg: AppConfig, cover_note: str) -> dict[str
 async def _apply_hirist(page: Page, cfg: AppConfig, cover_note: str) -> dict[str, Any]:
     """Apply on Hirist.tech."""
     try:
-        apply_btn = await page.query_selector(
-            "button.apply-btn, button[class*='apply'], a.apply-btn"
-        )
+        apply_btn = await page.query_selector("button.apply-btn, button[class*='apply'], a.apply-btn")
         if not apply_btn:
             return {"success": False, "error": "Apply button not found on Hirist"}
 
@@ -1507,20 +1650,19 @@ async def _apply_glassdoor(page: Page, cfg: AppConfig, cover_note: str) -> dict[
     try:
         # Glassdoor has "Easy Apply" and "Apply on employer site"
         # Only do Easy Apply
-        easy_btn = await page.query_selector(
-            "button[data-test='applyButton']:has-text('Easy Apply'), "
-            "button[class*='EasyApply'], "
-            "button:has-text('Easy Apply')"
-        )
+        easy_btn = await page.query_selector("button[data-test='applyButton']:has-text('Easy Apply'), button[class*='EasyApply'], button:has-text('Easy Apply')")
         if not easy_btn:
             # Check if it's an external apply
-            ext_btn = await page.query_selector(
-                "button:has-text('Apply on employer site'), "
-                "a:has-text('Apply on employer site')"
-            )
+            ext_btn = await page.query_selector("button:has-text('Apply on employer site'), a:has-text('Apply on employer site')")
             if ext_btn:
-                return {"success": False, "error": "External apply (employer site) — skipped"}
-            return {"success": False, "error": "No Easy Apply button found on Glassdoor"}
+                return {
+                    "success": False,
+                    "error": "External apply (employer site) — skipped",
+                }
+            return {
+                "success": False,
+                "error": "No Easy Apply button found on Glassdoor",
+            }
 
         await easy_btn.click()
         await page.wait_for_timeout(3000)
@@ -1536,23 +1678,26 @@ async def _apply_glassdoor(page: Page, cfg: AppConfig, cover_note: str) -> dict[
         for _ in range(5):
             text = (await page.inner_text("body")).lower()
             if "application submitted" in text or "applied" in text:
-                return {"success": True, "confirmation": "Glassdoor Easy Apply submitted"}
+                return {
+                    "success": True,
+                    "confirmation": "Glassdoor Easy Apply submitted",
+                }
 
             await _autofill_fields(page, cfg)
             if cfg.resume_exists:
                 await _upload_resume(page, cfg.resume_path)
 
-            submit = await page.query_selector(
-                "button:has-text('Submit'), button:has-text('Next'), "
-                "button:has-text('Continue'), button[type='submit']"
-            )
+            submit = await page.query_selector("button:has-text('Submit'), button:has-text('Next'), button:has-text('Continue'), button[type='submit']")
             if submit and await submit.is_visible():
                 await submit.click()
                 await page.wait_for_timeout(2500)
             else:
                 break
 
-        return {"success": True, "confirmation": f"Glassdoor apply completed (autofilled {filled} fields)"}
+        return {
+            "success": True,
+            "confirmation": f"Glassdoor apply completed (autofilled {filled} fields)",
+        }
     except Exception as exc:
         return {"success": False, "error": str(exc)}
 
@@ -1560,11 +1705,7 @@ async def _apply_glassdoor(page: Page, cfg: AppConfig, cover_note: str) -> dict[
 async def _apply_instahyre(page: Page, cfg: AppConfig, cover_note: str) -> dict[str, Any]:
     """Apply on Instahyre — mostly one-click 'Apply' or 'Interested'."""
     try:
-        apply_btn = await page.query_selector(
-            "button:has-text('Apply'), button:has-text('Interested'), "
-            "button[class*='apply'], a[class*='apply'], "
-            "button:has-text('I am interested')"
-        )
+        apply_btn = await page.query_selector("button:has-text('Apply'), button:has-text('Interested'), button[class*='apply'], a[class*='apply'], button:has-text('I am interested')")
         if not apply_btn:
             return {"success": False, "error": "Apply button not found on Instahyre"}
 
@@ -1580,10 +1721,7 @@ async def _apply_instahyre(page: Page, cfg: AppConfig, cover_note: str) -> dict[
 
         # Click submit/confirm if present
         for _ in range(3):
-            submit = await page.query_selector(
-                "button:has-text('Submit'), button:has-text('Confirm'), "
-                "button:has-text('Apply'), button[type='submit']"
-            )
+            submit = await page.query_selector("button:has-text('Submit'), button:has-text('Confirm'), button:has-text('Apply'), button[type='submit']")
             if submit and await submit.is_visible():
                 await submit.click()
                 await page.wait_for_timeout(2000)
@@ -1595,7 +1733,10 @@ async def _apply_instahyre(page: Page, cfg: AppConfig, cover_note: str) -> dict[
         if "applied" in text or "application" in text or "interested" in text:
             return {"success": True, "confirmation": "Instahyre application submitted"}
 
-        return {"success": True, "confirmation": f"Instahyre apply completed (autofilled {filled} fields)"}
+        return {
+            "success": True,
+            "confirmation": f"Instahyre apply completed (autofilled {filled} fields)",
+        }
     except Exception as exc:
         return {"success": False, "error": str(exc)}
 
@@ -1603,10 +1744,7 @@ async def _apply_instahyre(page: Page, cfg: AppConfig, cover_note: str) -> dict[
 async def _apply_cutshort(page: Page, cfg: AppConfig, cover_note: str) -> dict[str, Any]:
     """Apply on Cutshort — one-click 'Apply' with optional questions."""
     try:
-        apply_btn = await page.query_selector(
-            "button:has-text('Apply'), button[class*='apply'], "
-            "a:has-text('Apply'), button:has-text('I\\'m interested')"
-        )
+        apply_btn = await page.query_selector("button:has-text('Apply'), button[class*='apply'], a:has-text('Apply'), button:has-text('I\\'m interested')")
         if not apply_btn:
             return {"success": False, "error": "Apply button not found on Cutshort"}
 
@@ -1624,23 +1762,26 @@ async def _apply_cutshort(page: Page, cfg: AppConfig, cover_note: str) -> dict[s
         for _ in range(5):
             text = (await page.inner_text("body")).lower()
             if "applied" in text or "application submitted" in text:
-                return {"success": True, "confirmation": "Cutshort application submitted"}
+                return {
+                    "success": True,
+                    "confirmation": "Cutshort application submitted",
+                }
 
             await _autofill_fields(page, cfg)
             if cfg.resume_exists:
                 await _upload_resume(page, cfg.resume_path)
 
-            submit = await page.query_selector(
-                "button:has-text('Submit'), button:has-text('Next'), "
-                "button:has-text('Apply'), button[type='submit']"
-            )
+            submit = await page.query_selector("button:has-text('Submit'), button:has-text('Next'), button:has-text('Apply'), button[type='submit']")
             if submit and await submit.is_visible():
                 await submit.click()
                 await page.wait_for_timeout(2500)
             else:
                 break
 
-        return {"success": True, "confirmation": f"Cutshort apply completed (autofilled {filled} fields)"}
+        return {
+            "success": True,
+            "confirmation": f"Cutshort apply completed (autofilled {filled} fields)",
+        }
     except Exception as exc:
         return {"success": False, "error": str(exc)}
 
@@ -1661,6 +1802,7 @@ PLATFORM_APPLYERS = {
 # Public API
 # ---------------------------------------------------------------------------
 
+
 async def apply_job(
     job_url: str,
     platform: str,
@@ -1680,9 +1822,8 @@ async def apply_job(
 
     cfg = load_config()
     if resume_path:
-        import dataclasses
         cfg = dataclasses.replace(cfg, resume_path=resume_path)
-        
+
     if not cfg.resume_exists:
         return {
             "success": False,
@@ -1695,7 +1836,8 @@ async def apply_job(
             profile_dir = str(BROWSER_PROFILES_DIR / "linkedin")
             Path(profile_dir).mkdir(parents=True, exist_ok=True)
             context = await pw.firefox.launch_persistent_context(
-                profile_dir, headless=False,
+                profile_dir,
+                headless=False,
                 viewport={"width": 1280, "height": 800},
             )
             page = context.pages[0] if context.pages else await context.new_page()
@@ -1727,10 +1869,7 @@ async def apply_job(
             await context.close() if is_persistent else await browser.close()
             return {
                 "success": False,
-                "error": (
-                    f"CAPTCHA detected on {platform}. "
-                    "Please run save_session to log in manually, then retry."
-                ),
+                "error": (f"CAPTCHA detected on {platform}. Please run save_session to log in manually, then retry."),
                 "captcha": True,
             }
 
@@ -1842,18 +1981,14 @@ async def bulk_apply(
         if max_per_company is not None and company:
             if company not in per_company:
                 # Seed from history so the cap spans batches, not just this one.
-                per_company[company] = count_recent_applications_for_company(
-                    job.get("company", ""), company_window_days
-                )
+                per_company[company] = count_recent_applications_for_company(job.get("company", ""), company_window_days)
             if per_company[company] >= max_per_company:
-                skipped.append({
-                    **job,
-                    "reason": (
-                        f"Company cap reached — already {per_company[company]} "
-                        f"application(s) to this company in the last "
-                        f"{company_window_days}d (max {max_per_company})"
-                    ),
-                })
+                skipped.append(
+                    {
+                        **job,
+                        "reason": (f"Company cap reached — already {per_company[company]} application(s) to this company in the last {company_window_days}d (max {max_per_company})"),
+                    }
+                )
                 continue
         # Count before the dry_run branch so a preview reflects the same
         # selection a real run would make.
@@ -1872,7 +2007,9 @@ async def bulk_apply(
         if not cfg.resume_exists:
             return {
                 "summary": {"error": "Resume not found"},
-                "applied": [], "skipped": skipped, "failed": [],
+                "applied": [],
+                "skipped": skipped,
+                "failed": [],
             }
 
         # Split jobs: LinkedIn (persistent profile) vs others (shared context)
@@ -1888,17 +2025,23 @@ async def bulk_apply(
 
             job_cfg = cfg
             if job.get("resume_path"):
-                import dataclasses
                 job_cfg = dataclasses.replace(cfg, resume_path=job["resume_path"])
-                
+
             result = await _apply_in_tab(
-                context, url, plat, job_cfg, job.get("cover_note", ""),
+                context,
+                url,
+                plat,
+                job_cfg,
+                job.get("cover_note", ""),
             )
             status = "applied" if result.get("success") else "failed"
             try:
                 record_application(
-                    job_title=title, company=company, platform=plat,
-                    job_url=url, status=status,
+                    job_title=title,
+                    company=company,
+                    platform=plat,
+                    job_url=url,
+                    status=status,
                     confirmation=result.get("confirmation"),
                     cover_note=job.get("cover_note") or None,
                     match_score=job.get("match_score", 0),
@@ -1916,7 +2059,8 @@ async def bulk_apply(
                 profile_dir = str(BROWSER_PROFILES_DIR / "linkedin")
                 Path(profile_dir).mkdir(parents=True, exist_ok=True)
                 li_ctx = await pw.firefox.launch_persistent_context(
-                    profile_dir, headless=False,
+                    profile_dir,
+                    headless=False,
                     viewport={"width": 1280, "height": 800},
                 )
                 for i, job in enumerate(linkedin_jobs):

@@ -20,10 +20,9 @@ from __future__ import annotations
 
 import sqlite3
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 from typing import Any
 
-from rolesmith.config import DB_PATH, ensure_dirs
+from rolesmith_ai.config import DB_PATH, ensure_dirs
 
 _CREATE_TABLE = """
 CREATE TABLE IF NOT EXISTS applications (
@@ -96,7 +95,7 @@ def record_application(
             ),
         )
         conn.commit()
-        return cur.lastrowid  # type: ignore[return-value]
+        return cur.lastrowid
     finally:
         conn.close()
 
@@ -110,7 +109,8 @@ def is_already_applied(job_url: str) -> bool:
     conn = _connect()
     try:
         row = conn.execute(
-            "SELECT 1 FROM applications WHERE job_url = ? AND status = 'applied'", (job_url,)
+            "SELECT 1 FROM applications WHERE job_url = ? AND status = 'applied'",
+            (job_url,),
         ).fetchone()
         return row is not None
     finally:

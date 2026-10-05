@@ -1,10 +1,9 @@
 import re
-from typing import Tuple, List, Dict
 from copy import deepcopy
-from .models import JobRating, ResumeDraft, MasterProfile
-from .profile_store import load_master_profile, compact_profile_text
+
 from .llm import complete_json
-from .settings import settings
+from .models import JobRating, MasterProfile, ResumeDraft
+from .profile_store import load_master_profile
 
 TAILOR_SYSTEM_PROMPT = """You are an expert resume writer.
 Your job is to tailor a candidate's master profile to a specific job description.
@@ -15,31 +14,34 @@ If the master profile has a summary, you can lightly tailor it, but do not chang
 Write a plain, professional cover note (60-90 words) with no cliches, using only facts from the profile.
 """
 
+
 def extract_numbers(text: str) -> set[float]:
     # Extract all numbers from a string (including decimals, commas, % etc are ignored but digits remain)
-    matches = re.findall(r'\b\d+(?:\.\d+)?\b', text)
+    matches = re.findall(r"\b\d+(?:\.\d+)?\b", text)
     return set(float(m) for m in matches)
 
-def _contains_missing_skill(text: str, missing_skills: List[str]) -> bool:
+
+def _contains_missing_skill(text: str, missing_skills: list[str]) -> bool:
     text_lower = text.lower()
     for skill in missing_skills:
         # Word boundary check for the missing skill
-        if re.search(r'\b' + re.escape(skill.lower()) + r'\b', text_lower):
+        if re.search(r"\b" + re.escape(skill.lower()) + r"\b", text_lower):
             return True
     return False
 
-def validate_draft(draft: ResumeDraft, master: MasterProfile, rating: JobRating) -> Tuple[ResumeDraft, List[str]]:
+
+def validate_draft(draft: ResumeDraft, master: MasterProfile, rating: JobRating) -> tuple[ResumeDraft, list[str]]:
     warnings = []
     validated = deepcopy(draft)
-    
+
     # Canonicalize master skills
     master_skills_map = {}
     for cat, skills in master.skills.items():
         for s in skills:
             master_skills_map[s.lower()] = s
-            
+
     # Validate skills
-    valid_skills: Dict[str, List[str]] = {}
+    valid_skills: dict[str, list[str]] = {}
     for cat, skills in draft.skills.items():
         valid_cat_skills = []
         for s in skills:
@@ -53,24 +55,24 @@ def validate_draft(draft: ResumeDraft, master: MasterProfile, rating: JobRating)
         if valid_cat_skills:
             valid_skills[cat] = valid_cat_skills
     validated.skills = valid_skills
-    
+
     # Validate Headline and Summary
     if _contains_missing_skill(validated.headline, rating.missing_skills):
         warnings.append("Reverted headline because it contained a missing skill.")
         validated.headline = master.headline
-        
+
     if _contains_missing_skill(validated.summary, rating.missing_skills):
         warnings.append("Reverted summary because it contained a missing skill.")
         validated.summary = master.summary
-        
+
     # Check years in summary
     summary_numbers = extract_numbers(validated.summary)
     master_years = master.total_experience_years
     if any(n != master_years and n > 0 for n in summary_numbers):
-        # We only strictly check if they claim X years which is not the master years. 
+        # We only strictly check if they claim X years which is not the master years.
         # This is hard to do perfectly, but checking if master_years is in the summary is a start.
         # Actually rule says: "a summary 'N years' claim that does not match the profile reverts the summary"
-        matches = re.findall(r'(\d+(?:\.\d+)?)\s*[-+]*\s*year', validated.summary.lower())
+        matches = re.findall(r"(\d+(?:\.\d+)?)\s*[-+]*\s*year", validated.summary.lower())
         for m in matches:
             if float(m) != master_years:
                 warnings.append(f"Reverted summary due to mismatched years claim: {m}")
@@ -85,24 +87,24 @@ def validate_draft(draft: ResumeDraft, master: MasterProfile, rating: JobRating)
         if key not in master_exp_map:
             warnings.append(f"Removed invented experience '{exp.company} - {exp.title}'.")
             continue
-            
+
         m_exp = master_exp_map[key]
         m_bullets_text = " ".join(m_exp.bullets)
         m_numbers = extract_numbers(m_bullets_text)
-        
+
         valid_bullets = []
         for b in exp.bullets:
             if _contains_missing_skill(b, rating.missing_skills):
                 warnings.append(f"Dropped bullet in '{exp.company}' containing missing skill: {b[:30]}...")
                 continue
-                
+
             b_numbers = extract_numbers(b)
             if not b_numbers.issubset(m_numbers):
                 warnings.append(f"Dropped bullet in '{exp.company}' for invented numbers: {b[:30]}...")
                 continue
-                
+
             valid_bullets.append(b)
-            
+
         exp.dates = m_exp.dates  # Force structure from master
         exp.company = m_exp.company
         exp.title = m_exp.title
@@ -110,7 +112,7 @@ def validate_draft(draft: ResumeDraft, master: MasterProfile, rating: JobRating)
         exp.bullets = valid_bullets
         valid_exps.append(exp)
     validated.experience = valid_exps
-    
+
     # Validate Projects
     master_proj_names = {p.name.lower(): p for p in master.projects}
     valid_projs = []
@@ -120,10 +122,11 @@ def validate_draft(draft: ResumeDraft, master: MasterProfile, rating: JobRating)
             continue
         valid_projs.append(p)
     validated.projects = valid_projs
-    
+
     return validated, warnings
 
-def tailor_resume(title: str, company: str, description: str, rating: JobRating) -> Tuple[ResumeDraft, List[str]]:
+
+def tailor_resume(title: str, company: str, description: str, rating: JobRating) -> tuple[ResumeDraft, list[str]]:
     master = load_master_profile()
     user_prompt = f"""Master Profile:
 {master.model_dump_json(indent=2)}
@@ -134,8 +137,8 @@ Job Description ({company} - {title}):
 
 ---
 Rating:
-Matched Skills: {', '.join(rating.matched_skills)}
-Missing Skills: {', '.join(rating.missing_skills)}
+Matched Skills: {", ".join(rating.matched_skills)}
+Missing Skills: {", ".join(rating.missing_skills)}
 
 Create a tailored ResumeDraft.
 """

@@ -20,9 +20,9 @@ lint: ## Lint code with ruff and mypy
 	uv run mypy src tests
 
 test: ## Run tests with pytest
-	uv run pytest --cov=rolesmith tests
+	uv run pytest --cov=rolesmith_ai tests
 
 check: format lint test ## Run format, lint, and test
 
 run: ## Run the MCP server locally over stdio
-	uv run rolesmith-mcp
+	uv run rolesmith_ai-mcp

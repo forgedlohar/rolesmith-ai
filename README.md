@@ -1,4 +1,4 @@
-# job-apply-mcp
+# rolesmith_ai-ai
 
 > **Auto-apply to jobs across 8 Indian job portals using AI-powered form filling.**
 
@@ -35,8 +35,8 @@ python3 --version  # must be 3.11 or higher
 
 ### 2. Clone the repo
 ```bash
-git clone https://github.com/pulkit017/job-apply-mcp.git
-cd job-apply-mcp
+git clone https://github.com/pulkit017/rolesmith_ai-ai.git
+cd rolesmith_ai-ai
 ```
 
 ### 3. Install dependencies
@@ -50,11 +50,11 @@ python -m playwright install firefox
 ```
 
 ### 4. Set up your profile
-The config file lives at `~/.job-apply-mcp/config.json`. It will auto-create on first run, but you can create it manually:
+The config file lives at `~/.rolesmith_ai-ai/config.json`. It will auto-create on first run, but you can create it manually:
 
 ```bash
-mkdir -p ~/.job-apply-mcp
-nano ~/.job-apply-mcp/config.json
+mkdir -p ~/.rolesmith_ai-ai
+nano ~/.rolesmith_ai-ai/config.json
 ```
 
 Paste this template and **fill in your details**:
@@ -125,8 +125,8 @@ print(asyncio.run(interactive_login('linkedin')))
 ```
 
 > **How the two differ:** most platforms save a cookie jar to
-> `~/.job-apply-mcp/sessions/<platform>.json`. LinkedIn instead keeps the whole
-> Firefox profile at `~/.job-apply-mcp/browser-profiles/linkedin/`, because
+> `~/.rolesmith_ai-ai/sessions/<platform>.json`. LinkedIn instead keeps the whole
+> Firefox profile at `~/.rolesmith_ai-ai/browser-profiles/linkedin/`, because
 > LinkedIn ties a session to browser state beyond cookies and a cookie-only
 > replay gets logged out. Search and apply relaunch that same profile, so your
 > LinkedIn login persists there until LinkedIn expires it (typically days to
@@ -155,7 +155,7 @@ You'll see a menu:
 This MCP defaults to DevOps / MLOps roles. To use it for **any other role**, edit two things:
 
 ### A. Update your config keywords
-In your `~/.job-apply-mcp/config.json`, the `experience` map should list the technologies you know. The chatbot autofill matches these against questions like *"How many years of experience in Python?"*
+In your `~/.rolesmith_ai-ai/config.json`, the `experience` map should list the technologies you know. The chatbot autofill matches these against questions like *"How many years of experience in Python?"*
 
 ### B. Update the candidate profile (optional)
 For better job matching, edit `tools/profile.py`:
@@ -183,9 +183,9 @@ Edit `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) o
 ```json
 {
   "mcpServers": {
-    "job-apply-mcp": {
-      "command": "/full/path/to/job-apply-mcp/.venv/bin/python",
-      "args": ["/full/path/to/job-apply-mcp/server.py"]
+    "rolesmith_ai-ai": {
+      "command": "/full/path/to/rolesmith_ai-ai/.venv/bin/python",
+      "args": ["/full/path/to/rolesmith_ai-ai/server.py"]
     }
   }
 }
@@ -196,9 +196,9 @@ Edit `~/.kiro/settings/mcp.json`:
 ```json
 {
   "mcpServers": {
-    "job-apply-mcp": {
-      "command": "/full/path/to/job-apply-mcp/.venv/bin/python",
-      "args": ["/full/path/to/job-apply-mcp/server.py"],
+    "rolesmith_ai-ai": {
+      "command": "/full/path/to/rolesmith_ai-ai/.venv/bin/python",
+      "args": ["/full/path/to/rolesmith_ai-ai/server.py"],
       "disabled": false
     }
   }
@@ -389,7 +389,7 @@ Full-Stack). Edit `title_must_contain` in `tools/profile.py` for your own roles.
 ## File Structure
 
 ```
-job-apply-mcp/
+rolesmith_ai-ai/
 ├── server.py              # MCP server entry point
 ├── run.py                 # Interactive CLI runner
 ├── config.py              # Config loader
@@ -411,10 +411,10 @@ All your data stays local. **Nothing is sent anywhere except the job portals you
 
 | Path | What it contains |
 |------|------------------|
-| `~/.job-apply-mcp/config.json` | Your name, email, resume path, autofill answers |
-| `~/.job-apply-mcp/sessions/*.json` | Saved login cookies (all platforms except LinkedIn) |
-| `~/.job-apply-mcp/browser-profiles/linkedin/` | Full Firefox profile holding your LinkedIn login |
-| `~/.job-apply-mcp/applications.db` | SQLite log of every application |
+| `~/.rolesmith_ai-ai/config.json` | Your name, email, resume path, autofill answers |
+| `~/.rolesmith_ai-ai/sessions/*.json` | Saved login cookies (all platforms except LinkedIn) |
+| `~/.rolesmith_ai-ai/browser-profiles/linkedin/` | Full Firefox profile holding your LinkedIn login |
+| `~/.rolesmith_ai-ai/applications.db` | SQLite log of every application |
 
 **These are NOT in this git repo and will NEVER be pushed.**
 
@@ -428,12 +428,12 @@ All your data stays local. **Nothing is sent anywhere except the job portals you
 | `No direct apply button found` | Job is "Apply on company site" — these are intentionally skipped |
 | `CAPTCHA detected` | Run `save_session` to log in manually first |
 | Resume upload fails | Check `resume_path` in config is an absolute path that exists |
-| All jobs show "Already applied" | The DB has your history — to test fresh, delete `~/.job-apply-mcp/applications.db` |
+| All jobs show "Already applied" | The DB has your history — to test fresh, delete `~/.rolesmith_ai-ai/applications.db` |
 | Naukri rate-limits ("error processing your request") | Slow down — wait 24 hours, you've done too many in a short time |
 | LinkedIn search returns 0 jobs | Session expired — re-run `interactive_login('linkedin')` to log in to the persistent profile |
 | LinkedIn: `No Easy Apply button — external apply, skipped` | Either genuinely an external-apply job, or LinkedIn changed its markup — check `_apply_linkedin` in `tools/apply.py` |
 | LinkedIn: `Easy Apply modal did not open in time` | Page rendered slowly, or the apply-flow container changed; retry first (failed jobs are retryable) |
-| `BrowserType.launch_persistent_context: Timeout` | Stale lock from a browser that didn't close cleanly — delete `~/.job-apply-mcp/browser-profiles/linkedin/parent.lock` |
+| `BrowserType.launch_persistent_context: Timeout` | Stale lock from a browser that didn't close cleanly — delete `~/.rolesmith_ai-ai/browser-profiles/linkedin/parent.lock` |
 | Few LinkedIn candidates despite many results | Expected — LinkedIn serves ~11 cards per search and the title gate is strict. Use Naukri for volume |
 
 ---

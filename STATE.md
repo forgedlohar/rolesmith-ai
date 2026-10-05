@@ -14,4 +14,4 @@
 - There is no upstream LICENSE file. Added NOTICE file, but licensing gap needs decision.
 
 ## Decisions
-- Using variables in `src/rolesmith/branding.py` as source of truth for app name, pkg, cli, env prefix.
+- Using variables in `src/rolesmith_ai/branding.py` as source of truth for app name, pkg, cli, env prefix.

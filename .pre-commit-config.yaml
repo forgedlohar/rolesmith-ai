@@ -1,0 +1,14 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.1.14
+    hooks:
+      - id: ruff
+        args: ["--ignore-noqa", "--fix"]
+      - id: ruff-format
+  - repo: local
+    hooks:
+      - id: forbid-noqa
+        name: forbid noqa and ignore comments
+        entry: "(?i)#\\s*(noqa|type:\\s*ignore|pylint:\\s*disable|ruff:\\s*noqa|fmt:\\s*(off|skip))"
+        language: pygrep
+        types: [python]

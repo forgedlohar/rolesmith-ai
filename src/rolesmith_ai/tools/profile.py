@@ -1,12 +1,13 @@
 """
 Candidate profile definition and job relevance matching logic.
 """
-
 from __future__ import annotations
 
+import json
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from difflib import SequenceMatcher
+from pathlib import Path
 
 
 @dataclass(frozen=True)
@@ -15,6 +16,7 @@ class CandidateProfile:
     Default candidate profile — DevOps / AI-ML Engineer template.
     Users override these values via ~/.rolesmith/config.json
     """
+
     title: str = "DevOps and AI/ML Engineer"
     experience_years: int = 4
     location: str = "India"
@@ -131,18 +133,14 @@ class CandidateProfile:
 
 
 def _load_profile() -> CandidateProfile:
-    from config import load_config
     try:
-        cfg = load_config()
-        overrides = cfg.autofill if hasattr(cfg, "autofill") else {}
         # The spec says `config.json -> candidate_profile`
-        import json
-        from pathlib import Path
+
         config_path = Path.home() / ".rolesmith" / "config.json"
         if config_path.exists():
             raw_config = json.loads(config_path.read_text())
             cand_profile = raw_config.get("candidate_profile", {})
-            kwargs = {}
+            kwargs: dict[str, __import__("typing").Any] = {}
             for k, v in cand_profile.items():
                 if k in CandidateProfile.__annotations__:
                     if isinstance(v, list):
@@ -153,6 +151,7 @@ def _load_profile() -> CandidateProfile:
     except Exception:
         pass
     return CandidateProfile()
+
 
 PROFILE = _load_profile()
 
@@ -233,12 +232,7 @@ def compute_match_score(
             avoid_penalty = 1.0
             break
 
-    score = (
-        0.35 * role_score
-        + 0.40 * skill_score
-        + 0.15 * location_score
-        - 0.10 * avoid_penalty
-    )
+    score = 0.35 * role_score + 0.40 * skill_score + 0.15 * location_score - 0.10 * avoid_penalty
     return round(max(0.0, min(score, 1.0)), 3)
 
 

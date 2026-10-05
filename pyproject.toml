@@ -1,5 +1,5 @@
 [project]
-name = "rolesmith"
+name = "rolesmith_ai"
 dynamic = ["version"]
 description = "Rolesmith: Automated job application agent via MCP"
 authors = [
@@ -15,8 +15,8 @@ dependencies = [
 ]
 
 [project.scripts]
-rolesmith = "rolesmith.pipeline.__main__:main"
-rolesmith-mcp = "rolesmith.server:main"
+rolesmith_ai = "rolesmith_ai.pipeline.__main__:main"
+rolesmith_ai-mcp = "rolesmith_ai.server:main"
 
 [dependency-groups]
 dev = [
@@ -26,7 +26,8 @@ dev = [
     "mypy",
     "pre-commit",
     "pip-audit",
-    "pytest-mock"
+    "pytest-mock",
+    "types-reportlab>=5.0.0.20260911",
 ]
 docs = [
     "mkdocs-material",
@@ -38,4 +39,10 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.version]
-path = "src/rolesmith/branding.py"
+path = "src/rolesmith_ai/branding.py"
+
+[tool.ruff]
+line-length = 200
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "E402", "PLC0415", "PGH003", "PGH004", "RUF100"]

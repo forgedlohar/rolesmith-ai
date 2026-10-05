@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Standalone runner for rolesmith.
+Standalone runner for rolesmith_ai.
 No Claude needed — just run: python3 run.py
 """
 
@@ -9,12 +9,12 @@ import json
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent))
+from rolesmith_ai.tools.apply import bulk_apply
+from rolesmith_ai.tools.search import filter_jobs, search_jobs
+from rolesmith_ai.tools.session import SUPPORTED_PLATFORMS, interactive_login
+from rolesmith_ai.tools.tracker import get_application_summary
 
-from rolesmith.tools.session import interactive_login, SUPPORTED_PLATFORMS
-from rolesmith.tools.search import search_jobs, filter_jobs
-from rolesmith.tools.apply import bulk_apply
-from rolesmith.tools.tracker import get_application_summary
+sys.path.insert(0, str(Path(__file__).parent))
 
 
 def show_menu():
@@ -45,9 +45,15 @@ def get_keywords():
     raw = input("  Custom keywords (or press Enter for defaults): ").strip()
     if not raw:
         return [
-            "DevOps Engineer", "MLOps Engineer", "Cloud Engineer",
-            "SRE Engineer", "Platform Engineer", "Kubernetes Engineer",
-            "CI CD Engineer", "GenAI Engineer", "LLMOps Engineer",
+            "DevOps Engineer",
+            "MLOps Engineer",
+            "Cloud Engineer",
+            "SRE Engineer",
+            "Platform Engineer",
+            "Kubernetes Engineer",
+            "CI CD Engineer",
+            "GenAI Engineer",
+            "LLMOps Engineer",
         ]
     return [k.strip() for k in raw.split(",")]
 
@@ -77,8 +83,10 @@ async def do_search_and_apply():
     all_jobs, seen = [], set()
     for kw in keywords:
         jobs = await search_jobs(
-            keywords=[kw], location="India",
-            experience_years=3, platforms=platforms,
+            keywords=[kw],
+            location="India",
+            experience_years=3,
+            platforms=platforms,
         )
         for j in jobs:
             if j["apply_url"] not in seen:
@@ -93,7 +101,7 @@ async def do_search_and_apply():
         print("  No matching jobs found.")
         return
 
-    print(f"\n  Top jobs:")
+    print("\n  Top jobs:")
     for i, j in enumerate(filtered[:10], 1):
         days = j.get("posted_days_ago", -1)
         age = f"{days}d ago" if days >= 0 else ""
@@ -108,29 +116,33 @@ async def do_search_and_apply():
     mode = "DRY RUN" if dry_run else "REAL"
     print(f"\n  Applying ({mode})...")
     result = await bulk_apply(
-        jobs=filtered, max_applications=max_apps, dry_run=dry_run,
+        jobs=filtered,
+        max_applications=max_apps,
+        dry_run=dry_run,
     )
     print(f"\n  {json.dumps(result['summary'], indent=2)}")
     if result["applied"]:
         print("\n  Applied:")
         for a in result["applied"]:
-            print(f"    [OK] {a.get('title','?')} @ {a.get('company','?')}")
+            print(f"    [OK] {a.get('title', '?')} @ {a.get('company', '?')}")
     if result["failed"]:
         print("\n  Failed:")
         for f_ in result["failed"]:
-            print(f"    [X]  {f_.get('title','?')} — {f_.get('error','')[:60]}")
+            print(f"    [X]  {f_.get('title', '?')} — {f_.get('error', '')[:60]}")
 
 
 async def do_search_only():
     platforms = get_platforms()
     keywords = get_keywords()
 
-    print(f"\n  Searching...")
+    print("\n  Searching...")
     all_jobs, seen = [], set()
     for kw in keywords:
         jobs = await search_jobs(
-            keywords=[kw], location="India",
-            experience_years=3, platforms=platforms,
+            keywords=[kw],
+            location="India",
+            experience_years=3,
+            platforms=platforms,
         )
         for j in jobs:
             if j["apply_url"] not in seen:

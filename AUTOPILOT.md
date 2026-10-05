@@ -1,6 +1,6 @@
 # Autopilot
 
-Autopilot is an LLM-driven layer on top of `job-apply-mcp` that fully automates the job application process: discovering jobs, rating them for fit, tailoring your resume, and applying.
+Autopilot is an LLM-driven layer on top of `rolesmith_ai-ai` that fully automates the job application process: discovering jobs, rating them for fit, tailoring your resume, and applying.
 
 ## How it works
 
@@ -27,7 +27,7 @@ First, initialize your master profile template and database:
 ```bash
 python -m autopilot init
 ```
-This creates `~/.job-apply-mcp/master_profile.json` and a local SQLite DB for autopilot. Edit the master profile with your full experience.
+This creates `~/.rolesmith_ai-ai/master_profile.json` and a local SQLite DB for autopilot. Edit the master profile with your full experience.
 
 Then, sync it into the base configuration:
 ```bash

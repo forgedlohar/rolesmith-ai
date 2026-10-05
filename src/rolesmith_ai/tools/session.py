@@ -13,7 +13,7 @@ from typing import Any
 
 from playwright.async_api import BrowserContext, async_playwright
 
-from rolesmith.config import APP_DIR, SESSIONS_DIR, ensure_dirs, get_user_agent
+from rolesmith_ai.config import APP_DIR, SESSIONS_DIR, ensure_dirs, get_user_agent
 
 logger = logging.getLogger(__name__)
 
@@ -55,16 +55,17 @@ async def _interactive_login_persistent(platform: str, url: str) -> dict[str, An
 
     async with async_playwright() as pw:
         context = await pw.firefox.launch_persistent_context(
-            str(profile_dir), headless=False,
+            str(profile_dir),
+            headless=False,
             viewport={"width": 1280, "height": 800},
-            locale="en-IN", timezone_id="Asia/Kolkata",
+            locale="en-IN",
+            timezone_id="Asia/Kolkata",
         )
         try:
             page = context.pages[0] if context.pages else await context.new_page()
             await page.goto(url, wait_until="domcontentloaded", timeout=30_000)
             logger.info(
-                "Browser opened for %s. Log in (password or OTP) — the session "
-                "is stored in the profile itself. Waiting up to 2 minutes...",
+                "Browser opened for %s. Log in (password or OTP) — the session is stored in the profile itself. Waiting up to 2 minutes...",
                 platform,
             )
             await page.wait_for_timeout(120_000)
@@ -77,10 +78,7 @@ async def _interactive_login_persistent(platform: str, url: str) -> dict[str, An
         "platform": platform,
         "storage": f"persistent browser profile: {profile_dir}",
         "looks_logged_in": logged_in,
-        "note": (
-            "If looks_logged_in is false, re-run and complete the login "
-            "before the window closes."
-        ),
+        "note": ("If looks_logged_in is false, re-run and complete the login before the window closes."),
     }
 
 
@@ -104,9 +102,7 @@ async def load_cookies(context: BrowserContext, platform: str) -> bool:
     return True
 
 
-async def save_cookies_from_context(
-    context: BrowserContext, platform: str
-) -> int:
+async def save_cookies_from_context(context: BrowserContext, platform: str) -> int:
     """Persist current cookies from a BrowserContext to disk."""
     ensure_dirs()
     cookies = await context.cookies()
@@ -159,8 +155,7 @@ async def interactive_login(platform: str) -> dict[str, Any]:
         # to reach a logged-in state.  We give the user up to 5 minutes.
         try:
             logger.info(
-                "Browser opened for %s login. Please log in manually. "
-                "Waiting 3 minutes for you to complete login...",
+                "Browser opened for %s login. Please log in manually. Waiting 3 minutes for you to complete login...",
                 platform,
             )
             # Wait 2 minutes for user to complete OTP login

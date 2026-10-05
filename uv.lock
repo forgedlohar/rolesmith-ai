@@ -2148,7 +2148,7 @@ wheels = [
 ]
 
 [[package]]
-name = "rolesmith"
+name = "rolesmith-ai"
 source = { editable = "." }
 dependencies = [
     { name = "mcp" },
@@ -2167,6 +2167,7 @@ dev = [
     { name = "pytest-cov" },
     { name = "pytest-mock" },
     { name = "ruff" },
+    { name = "types-reportlab" },
 ]
 docs = [
     { name = "mkdocs-material" },
@@ -2191,6 +2192,7 @@ dev = [
     { name = "pytest-cov" },
     { name = "pytest-mock" },
     { name = "ruff" },
+    { name = "types-reportlab", specifier = ">=5.0.0.20260911" },
 ]
 docs = [
     { name = "mkdocs-material" },
@@ -2462,6 +2464,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/19/75/241269d1da26b624c0d5e110e8149093c759b7a286138f4efd61a60e75fe/tomli_w-1.2.0.tar.gz", hash = "sha256:2dd14fac5a47c27be9cd4c976af5a12d87fb1f0b4512f81d69cce3b35ae25021", size = 7184, upload-time = "2025-01-15T12:07:24.262Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c7/18/c86eb8e0202e32dd3df50d43d7ff9854f8e0603945ff398974c1d91ac1ef/tomli_w-1.2.0-py3-none-any.whl", hash = "sha256:188306098d013b691fcadc011abd66727d3c414c571bb01b1a174ba8c983cf90", size = 6675, upload-time = "2025-01-15T12:07:22.074Z" },
+]
+
+[[package]]
+name = "types-reportlab"
+version = "5.0.0.20260911"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/0e/99/38fdac0117afa3b91246220254172ebdae6543ccb14847ec496f3a8c1678/types_reportlab-5.0.0.20260911.tar.gz", hash = "sha256:40aa1a86fe8c14285670cbb598a641d3b9dde59a8f7c2ecb245b8c48f15d4d6c", size = 72956, upload-time = "2026-09-11T06:45:13.878Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/1b/b1/c4a51f49d27b6d15facbd2b48416cd6a1224a76d49463e3eed5b8e22b4ce/types_reportlab-5.0.0.20260911-py3-none-any.whl", hash = "sha256:ac995d83ae683edf31aec0bc52c1963f979e1f426744b9c04557c4c8da1f29ed", size = 113206, upload-time = "2026-09-11T06:45:12.757Z" },
 ]
 
 [[package]]

@@ -1,7 +1,7 @@
 """
-Configuration loader for rolesmith.
+Configuration loader for rolesmith_ai.
 
-Reads and writes ~/.rolesmith/config.json which stores:
+Reads and writes ~/.rolesmith_ai/config.json which stores:
   - resume_path        : absolute path to the resume PDF
   - name               : candidate full name
   - email              : candidate email
@@ -14,13 +14,16 @@ Reads and writes ~/.rolesmith/config.json which stores:
 from __future__ import annotations
 
 import json
+import logging
+import os
 import platform
+import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-import os
 from .branding import CLI, ENV_PREFIX
+
 APP_DIR = Path(os.environ.get(f"{ENV_PREFIX}HOME", Path.home() / f".{CLI}"))
 CONFIG_PATH = APP_DIR / "config.json"
 SESSIONS_DIR = APP_DIR / "sessions"
@@ -51,9 +54,8 @@ class AppConfig:
         return bool(self.resume_path) and Path(self.resume_path).is_file()
 
 
-import shutil
-import logging
-logger = logging.getLogger("rolesmith")
+logger = logging.getLogger("rolesmith_ai")
+
 
 def ensure_dirs() -> None:
     """Create the app directory and sessions sub-directory if missing. Migrate legacy dir if needed."""
@@ -62,8 +64,8 @@ def ensure_dirs() -> None:
         logger.info(f"Migrating legacy data from {legacy_dir} to {APP_DIR}")
         shutil.move(str(legacy_dir), str(APP_DIR))
         legacy_dir.mkdir(parents=True, exist_ok=True)
-        (legacy_dir / "migrated_to_rolesmith.txt").write_text("Data migrated to ~/.rolesmith\n")
-    
+        (legacy_dir / "migrated_to_rolesmith_ai.txt").write_text(f"Data migrated to {APP_DIR}\n")
+
     APP_DIR.mkdir(parents=True, exist_ok=True)
     SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -103,17 +105,8 @@ def get_user_agent() -> str:
     """Return a Firefox user-agent string matching the current OS."""
     os_name = platform.system()
     if os_name == "Windows":
-        return (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:128.0) "
-            "Gecko/20100101 Firefox/128.0"
-        )
+        return "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:128.0) Gecko/20100101 Firefox/128.0"
     elif os_name == "Darwin":
-        return (
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:128.0) "
-            "Gecko/20100101 Firefox/128.0"
-        )
+        return "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:128.0) Gecko/20100101 Firefox/128.0"
     else:
-        return (
-            "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) "
-            "Gecko/20100101 Firefox/128.0"
-        )
+        return "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0"
