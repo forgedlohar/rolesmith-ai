@@ -1,14 +1,14 @@
 # Configuration
 
-Rolesmith AI requires you to set up your profile and credentials in `~/.rolesmith_ai/config.json`.
+Rolesmith AI requires you to set up your profile and credentials in `~/.rolesmith/config.json`.
 
 ## Generating the Template
 
 To generate the configuration template, run:
 ```bash
-uv run python3 -m rolesmith_ai.pipeline setup
+uv run rolesmith-ai init
 ```
-This will initialize your configuration in `~/.rolesmith_ai/config.json` with a comprehensive `candidate_profile` block.
+This will initialize your configuration in `~/.rolesmith/config.json` with a comprehensive `candidate_profile` block.
 
 ## Profile Structure
 
@@ -23,6 +23,6 @@ Rolesmith uses this data to tailor your resume and answer dynamic form questions
 ## PDF Resume Generation
 
 Rolesmith compiles LaTeX files to generate tailored PDF resumes. You must place your master LaTeX template in:
-`~/.rolesmith_ai/resume_template.tex`
+`~/.rolesmith/resume_template.tex`
 
 The pipeline uses `pdflatex` to render the customized resume on the fly.
