@@ -1,0 +1,41 @@
+[project]
+name = "rolesmith"
+dynamic = ["version"]
+description = "Rolesmith: Automated job application agent via MCP"
+authors = [
+    { name = "pulkit017", email = "author@example.com" }
+]
+requires-python = ">=3.11"
+dependencies = [
+    "mcp>=1.0,<2",
+    "playwright",
+    "pydantic>=2",
+    "pydantic-settings",
+    "reportlab"
+]
+
+[project.scripts]
+rolesmith = "rolesmith.pipeline.__main__:main"
+rolesmith-mcp = "rolesmith.server:main"
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "pytest-cov",
+    "ruff",
+    "mypy",
+    "pre-commit",
+    "pip-audit",
+    "pytest-mock"
+]
+docs = [
+    "mkdocs-material",
+    "mkdocstrings[python]"
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "src/rolesmith/branding.py"
