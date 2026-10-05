@@ -6,7 +6,7 @@ import uuid
 from pydantic import BaseModel
 
 from rolesmith_ai.pipeline.pipeline import RUNS, _background_task, apply_queue, tailor_shortlist
-from rolesmith_ai.pipeline.store import get_jobs_by_status
+from rolesmith_ai.store import get_jobs_by_status
 
 from .llm import LLMError, complete_json
 from .pipeline import discover_and_rate

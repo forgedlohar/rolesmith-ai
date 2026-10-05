@@ -18,12 +18,12 @@ from playwright.async_api import Page, async_playwright
 from rolesmith_ai.config import APP_DIR, AppConfig, get_user_agent, load_config
 from rolesmith_ai.pipeline.llm_answers import get_answer
 from rolesmith_ai.pipeline.settings import settings
-from rolesmith_ai.tools.session import load_cookies, save_cookies_from_context
-from rolesmith_ai.tools.tracker import (
+from rolesmith_ai.store import (
     count_recent_applications_for_company,
     is_already_applied,
     record_application,
 )
+from rolesmith_ai.tools.session import load_cookies, save_cookies_from_context
 
 BROWSER_PROFILES_DIR = APP_DIR / "browser-profiles"
 

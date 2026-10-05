@@ -3,11 +3,11 @@ import re
 from typing import Any
 
 from rolesmith_ai import config
+from rolesmith_ai.store import get_cached_answer, save_answer
 
 from .llm import LLMError, complete_json
 from .models import FormAnswer
 from .profile_store import load_master_profile
-from .store import get_cached_answer, save_answer
 
 ANSWERS_SYSTEM_PROMPT = """You are answering job application form questions on behalf of the candidate.
 Rely strictly on the provided profile facts.

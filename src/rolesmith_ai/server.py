@@ -20,11 +20,10 @@ from mcp.types import TextContent, Tool
 
 from rolesmith_ai.branding import APP_NAME
 from rolesmith_ai.pipeline.pipeline import RUNS, start_background
-from rolesmith_ai.pipeline.store import get_jobs_by_status, save_answer
+from rolesmith_ai.store import get_application_summary, get_jobs_by_status, save_answer
 from rolesmith_ai.tools.apply import apply_job, bulk_apply
 from rolesmith_ai.tools.search import filter_jobs, search_jobs
 from rolesmith_ai.tools.session import SUPPORTED_PLATFORMS, interactive_login
-from rolesmith_ai.tools.tracker import get_application_summary
 
 # ---------------------------------------------------------------------------
 # Logging

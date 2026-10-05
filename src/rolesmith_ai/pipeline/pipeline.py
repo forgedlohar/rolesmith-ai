@@ -7,9 +7,9 @@ from typing import Any
 
 from rolesmith_ai import config
 from rolesmith_ai.pipeline.models import JobRating
+from rolesmith_ai.store import get_db_path, get_job, get_jobs_by_status, is_already_applied, upsert_job
 from rolesmith_ai.tools.apply import apply_job
 from rolesmith_ai.tools.search import search_jobs
-from rolesmith_ai.tools.tracker import is_already_applied
 
 from .jd import fetch_jd
 from .llm import LLMError
@@ -17,7 +17,6 @@ from .profile_store import load_master_profile
 from .rating import rate_job
 from .render import render_resume
 from .settings import settings
-from .store import get_db_path, get_job, get_jobs_by_status, upsert_job
 from .tailor import tailor_resume
 
 RUNS: dict[str, dict[str, Any]] = {}

@@ -9,10 +9,10 @@ import json
 import sys
 from pathlib import Path
 
+from rolesmith_ai.store import get_application_summary
 from rolesmith_ai.tools.apply import bulk_apply
 from rolesmith_ai.tools.search import filter_jobs, search_jobs
 from rolesmith_ai.tools.session import SUPPORTED_PLATFORMS, interactive_login
-from rolesmith_ai.tools.tracker import get_application_summary
 
 sys.path.insert(0, str(Path(__file__).parent))
 
