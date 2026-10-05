@@ -29,6 +29,7 @@ nav:
   - Architecture: architecture.md
   - Configuration: configuration.md
   - Usage: usage.md
+  - Antigravity Integration: antigravity.md
 
 markdown_extensions:
   - toc:
