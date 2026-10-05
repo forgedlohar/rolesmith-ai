@@ -33,13 +33,6 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "phone": "",
     "location": "India",
     "experience_years": 3,
-    "credentials": {
-        "linkedin": {"email": "", "password": ""},
-        "naukri": {"email": "", "password": ""},
-        "wellfound": {"email": "", "password": ""},
-        "indeed": {"email": "", "password": ""},
-        "hirist": {"email": "", "password": ""},
-    },
 }
 
 
@@ -51,7 +44,6 @@ class AppConfig:
     phone: str = ""
     location: str = "India"
     experience_years: int = 3
-    credentials: dict[str, dict[str, str]] = field(default_factory=dict)
     autofill: dict[str, Any] = field(default_factory=dict)
 
     @property
@@ -89,7 +81,6 @@ def load_config() -> AppConfig:
         phone=raw.get("phone", ""),
         location=raw.get("location", "India"),
         experience_years=raw.get("experience_years", 3),
-        credentials=raw.get("credentials", {}),
         autofill=raw.get("autofill", {}),
     )
 
@@ -104,7 +95,6 @@ def save_config(config: AppConfig) -> None:
         "phone": config.phone,
         "location": config.location,
         "experience_years": config.experience_years,
-        "credentials": config.credentials,
     }
     CONFIG_PATH.write_text(json.dumps(data, indent=2))
 

@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 from typing import Dict, Any, List
 from .models import MasterProfile
-from .settings import get_config_path
+from rolesmith.config import CONFIG_PATH
 
 def get_profile_path() -> Path:
     return Path.home() / ".rolesmith" / "master_profile.json"
@@ -71,7 +71,7 @@ def compact_profile_text(profile: MasterProfile) -> str:
 
 def sync_into_config():
     profile = load_master_profile()
-    config_path = get_config_path()
+    config_path = CONFIG_PATH
     raw_config = {}
     if config_path.exists():
         with open(config_path, "r") as f:

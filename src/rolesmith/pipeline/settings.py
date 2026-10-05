@@ -1,19 +1,22 @@
 import os
-import json
 from pathlib import Path
-from pydantic import BaseModel, Field
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from rolesmith.branding import ENV_PREFIX
 
-def get_config_path() -> Path:
-    return Path.home() / ".rolesmith" / "config.json"
-
-class LLMSettings(BaseModel):
+class LLMSettings(BaseSettings):
     base_url: str = Field(default="http://localhost:8000/v1")
     model: str = Field(default="local")
     api_key: str = Field(default="sk-local")
     json_mode: bool = Field(default=True)
-    extra_body: dict = Field(default_factory=dict)
+    
+    model_config = SettingsConfigDict(
+        env_prefix=f"{ENV_PREFIX}LLM_",
+        env_file=".env",
+        extra="ignore"
+    )
 
-class AutopilotSettings(BaseModel):
+class AutopilotSettings(BaseSettings):
     platforms: list[str] = Field(default_factory=lambda: ["naukri", "linkedin"])
     days: int = Field(default=3)
     fetch_jd_linkedin: bool = Field(default=False)
@@ -30,37 +33,41 @@ class AutopilotSettings(BaseModel):
     max_projects: int = Field(default=3)
     llm_form_answers: bool = Field(default=True)
     cover_note: bool = Field(default=True)
-
-class Settings(BaseModel):
-    llm: LLMSettings = Field(default_factory=LLMSettings)
-    autopilot: AutopilotSettings = Field(default_factory=AutopilotSettings)
-
-def load_settings() -> Settings:
-    config_path = get_config_path()
-    raw_config = {}
-    if config_path.exists():
-        try:
-            with open(config_path, "r") as f:
-                raw_config = json.load(f)
-        except Exception:
-            pass
-
-    llm_config = raw_config.get("llm", {})
-    autopilot_config = raw_config.get("autopilot", {})
-
-    settings = Settings(
-        llm=LLMSettings(**llm_config),
-        autopilot=AutopilotSettings(**autopilot_config)
+    
+    model_config = SettingsConfigDict(
+        env_prefix=f"{ENV_PREFIX}AUTOPILOT_",
+        env_file=".env",
+        extra="ignore"
     )
 
-    # Env overrides
-    if "AUTOPILOT_LLM_BASE_URL" in os.environ:
-        settings.llm.base_url = os.environ["AUTOPILOT_LLM_BASE_URL"]
-    if "AUTOPILOT_LLM_MODEL" in os.environ:
-        settings.llm.model = os.environ["AUTOPILOT_LLM_MODEL"]
-    if "AUTOPILOT_LLM_API_KEY" in os.environ:
-        settings.llm.api_key = os.environ["AUTOPILOT_LLM_API_KEY"]
+class CredentialsSettings(BaseSettings):
+    linkedin_email: str = ""
+    linkedin_password: str = ""
+    naukri_email: str = ""
+    naukri_password: str = ""
+    wellfound_email: str = ""
+    wellfound_password: str = ""
+    indeed_email: str = ""
+    indeed_password: str = ""
+    hirist_email: str = ""
+    hirist_password: str = ""
+    
+    model_config = SettingsConfigDict(
+        env_prefix=f"{ENV_PREFIX}",
+        env_file=".env",
+        extra="ignore"
+    )
 
-    return settings
+class Settings(BaseSettings):
+    llm: LLMSettings = Field(default_factory=LLMSettings)
+    autopilot: AutopilotSettings = Field(default_factory=AutopilotSettings)
+    credentials: CredentialsSettings = Field(default_factory=CredentialsSettings)
+
+def load_settings() -> Settings:
+    return Settings(
+        llm=LLMSettings(),
+        autopilot=AutopilotSettings(),
+        credentials=CredentialsSettings()
+    )
 
 settings = load_settings()

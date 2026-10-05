@@ -433,7 +433,7 @@ def _classify_linkedin_text_answer(
     # Never leave a question unanswered — default to Yes for anything else
     # (most unclassified Easy Apply screening questions are yes/no gates).
     try:
-        from autopilot.llm_answers import get_answer
+        from rolesmith.pipeline.llm_answers import get_answer
         ans = get_answer(label)
         if ans is not None:
             return str(ans)
@@ -509,7 +509,7 @@ def _classify_linkedin_select(
         return min(ranges, key=lambda r: abs((r[0] + min(r[1], r[0] + 20)) / 2 - target))[2]
 
     try:
-        from autopilot.llm_answers import get_answer
+        from rolesmith.pipeline.llm_answers import get_answer
         ans = get_answer(label, options=real)
         if ans is not None:
             return str(ans)
@@ -913,9 +913,9 @@ async def _apply_linkedin(page: Page, cfg: AppConfig, cover_note: str) -> dict[s
 
 async def _naukri_login(page: Page, cfg: AppConfig) -> bool:
     """Log in to Naukri inline if not already authenticated."""
-    creds = cfg.credentials.get("naukri", {})
-    email = creds.get("email", "")
-    password = creds.get("password", "")
+    from rolesmith.pipeline.settings import settings
+    email = settings.credentials.naukri_email
+    password = settings.credentials.naukri_password
     if not email or not password:
         return False
 
@@ -955,7 +955,7 @@ async def _apply_naukri(page: Page, cfg: AppConfig, cover_note: str) -> dict[str
         if login_btn and await login_btn.is_visible():
             logged_in = await _naukri_login(page, cfg)
             if not logged_in:
-                return {"success": False, "error": "Naukri login failed — check credentials in config.json"}
+                return {"success": False, "error": "Naukri login failed — check credentials in .env"}
             # Reload the job page after login
             await page.reload(wait_until="domcontentloaded")
             await page.wait_for_timeout(3000)
